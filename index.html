@@ -216,6 +216,18 @@ pre.ocr{white-space:pre-wrap;word-break:break-word;font:12px/1.45 ui-monospace,M
 .pill.ok{background:color-mix(in srgb,var(--pos) 16%,var(--surface));color:var(--pos)}
 .pill.bad{background:color-mix(in srgb,var(--neg) 14%,var(--surface));color:var(--neg)}
 .pill.wait{background:var(--sunk);color:var(--fg)}
+.billcard{display:flex;flex-direction:column;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:18px}
+.billcard.bad{border-color:color-mix(in srgb,var(--neg) 40%,var(--line))}
+.billcard .bc-top{display:flex;justify-content:space-between;align-items:center}
+.billcard .big{font-family:var(--f-d);font-size:2rem;line-height:1.1}
+.billcard .sub{display:flex;flex-wrap:wrap;gap:4px 14px;color:var(--muted);font-size:.95rem}
+.billcard .bar{height:6px;background:var(--sunk);border-radius:6px;overflow:hidden}.billcard .bar i{display:block;height:100%;background:var(--pos);border-radius:6px}
+.billcard .btn{align-self:flex-start;margin-top:4px}
+.billcard.empty-bill{flex-direction:row;align-items:center;gap:14px;text-align:left;color:var(--fg);border-style:dashed;min-height:64px;width:100%;font-size:1rem}
+.billcard.empty-bill>span{display:flex;flex-direction:column;gap:2px}.billcard.empty-bill>span>span{color:var(--muted);font-size:.92rem}
+.pill.bad,.pill.ok,.pill.wait{white-space:nowrap}
+.subhead{margin:6px 0 0;font-family:var(--f-d);font-size:1.05rem}
+.seg4 button{padding-left:4px;padding-right:4px}
 .legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.92rem;color:var(--muted);padding:0 0 4px}
 .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
 canvas.stack{width:100%;height:210px;display:block}
@@ -303,7 +315,9 @@ function demo(){const t=today();return{books:[
   .concat([["Groceries",1250,"food",0],["Rickshaw",80,"transport",0],["Mobile recharge",299,"bills",-1],["Lunch",220,"food",-1],["Pharmacy",460,"health",-2]]
    .map((r,i)=>({id:"p"+i,bookId:"demo-daily",kind:"expense",desc:r[0],amount:r[1],cat:r[2],date:addDays(t,r[3]),note:"",created:i})))}}
 function demoCard(){const t=today(),d=new Date(t+"T12:00:00");d.setMonth(d.getMonth()-7);const fs=String(d.getMonth()+1).padStart(2,"0")+"-15";
-  const book={id:"demo-card",type:"card",name:"Sample Visa card",sample:true,cur:"৳",hue:340,budget:0,members:[],created:3,statements:[],
+  const book={id:"demo-card",type:"card",name:"Sample Visa card",sample:true,cur:"৳",hue:340,budget:0,members:[],created:3,statements:[
+    {id:"sd0",file:"",from:"",to:"",count:0,total:0,added:1,due:12410,min:620,dueDate:addDays(t,-22),paid:12410,paidOn:addDays(t,-25)},
+    {id:"sd1",file:"",from:"",to:"",count:0,total:0,added:2,due:18640,min:932,dueDate:addDays(t,8),paid:5000,paidOn:addDays(t,-1)}],
     card:{last4:"4821",target:24,feeStart:fs,minAmt:0,fee:2875,rules:Object.assign({},CT_DEFAULT,{qr:false})}};
   const L=[["Shwapno Gulshan",1850],["Foodpanda",640],["GP recharge",299],["Bangla QR Star Kabab",420],["DESCO prepaid",1500],["bKash add money",3000],["Daraz",2350],["Pathao Food",520],["Aarong",4200],["Bangla QR tea stall",120]];
   const fy=feeYear(cardOf(book),0),tx=[];let n=0;
@@ -346,7 +360,8 @@ function home(){
       sub=`<span>This month</span><span>${n} entries in total</span>${b.budget?`<span>Budget ${fmt(b.budget,b.cur)}</span>`:""}`;
       if(b.budget)bar=`<div class="bar"><i class="${ms>b.budget?"over":""}" style="width:${Math.min(100,ms/b.budget*100).toFixed(1)}%"></i></div>`}
     if(b.type==="card"){const st=cardStats(b,0),c=st.c;total=fmt(st.spend,b.cur);
-      sub=`<span>${st.count} of ${c.target} for the fee waiver</span><span>${st.done?"Fee waived this year":"Fee year ends "+longDate(st.fy.end)}</span>`;
+      const nb=nextBill(b),bs=nb&&billStatus(nb);
+      sub=`${nb&&bs.left>0?`<span class="${bs.cls==="bad"?"neg":""}">${fmt(bs.left,b.cur)} ${bs.cls==="bad"?"overdue":"due"}${nb.dueDate?" by "+shortDate(nb.dueDate):""}</span>`:""}<span>${st.count} of ${c.target} for the fee waiver</span><span>${st.done?"Fee waived this year":"Fee year ends "+longDate(st.fy.end)}</span>`;
       bar=`<div class="bar"><i style="width:${Math.min(100,st.count/c.target*100).toFixed(1)}%"></i></div>`}
     return `<button class="book" style="--h:${+b.hue||230}" data-a="open" data-id="${esc(b.id)}">
       <span class="book-name">${esc(b.name)} <span class="pill">${b.type==="trip"?"Trip":b.type==="card"?"Credit card"+(b.card&&b.card.last4?" "+esc(b.card.last4):""):"Daily ledger"}</span>${b.sample?'<span class="pill">Sample</span>':""}${b.cloud&&b.cloud.members&&b.cloud.members.length>1?'<span class="pill">Shared</span>':""}</span>
@@ -508,7 +523,8 @@ function clean(d){if(!d||!Array.isArray(d.books))throw new Error("shape");
     members:(Array.isArray(b.members)?b.members:[]).filter(m=>m&&m.id).map(m=>({id:sid(m.id),name:String(m.name||"").slice(0,60),heads:Math.max(1,Math.min(99,Math.round(+m.heads||1)))}))}));
   books.forEach((nb,i)=>{const b=d.books.filter(b=>b&&b.id&&typeof b.name==="string")[i];if(nb.type!=="card")return;const c=b.card||{},r={};Object.keys(CT).forEach(k=>r[k]=c.rules&&k in c.rules?!!c.rules[k]:CT_DEFAULT[k]);
     nb.card={last4:String(c.last4||"").replace(/\D/g,"").slice(-4),target:Math.max(1,Math.min(365,Math.round(+c.target||24))),feeStart:/^\d{2}-\d{2}$/.test(c.feeStart||"")?c.feeStart:"01-01",minAmt:Math.max(0,+c.minAmt||0),fee:Math.max(0,+c.fee||0),rules:r};
-    nb.statements=(Array.isArray(b.statements)?b.statements:[]).filter(x=>x&&x.id).slice(0,500).map(x=>({id:sid(x.id),file:String(x.file||"").slice(0,120),from:isDate(x.from)?x.from:"",to:isDate(x.to)?x.to:"",count:Math.max(0,Math.round(+x.count||0)),total:Math.max(0,+x.total||0),added:+x.added||Date.now()}))});
+    nb.statements=(Array.isArray(b.statements)?b.statements:[]).filter(x=>x&&x.id).slice(0,500).map(x=>({id:sid(x.id),file:String(x.file||"").slice(0,120),from:isDate(x.from)?x.from:"",to:isDate(x.to)?x.to:"",count:Math.max(0,Math.round(+x.count||0)),total:Math.max(0,+x.total||0),added:+x.added||Date.now(),
+      due:Math.max(0,+x.due||0),min:Math.max(0,+x.min||0),dueDate:isDate(x.dueDate)?x.dueDate:"",paid:Math.max(0,+x.paid||0),paidOn:isDate(x.paidOn)?x.paidOn:""}))});
   const ids=new Set(books.map(b=>b.id));
   const tx=(Array.isArray(d.tx)?d.tx:[]).filter(t=>t&&ids.has(sid(t.bookId))&&isFinite(+t.amount)).map(t=>{const o={id:sid(t.id||uid()),bookId:sid(t.bookId),kind:t.kind==="settle"?"settle":"expense",amount:Math.abs(+t.amount),
       desc:String(t.desc||"").slice(0,160),cat:CATS[t.cat]?t.cat:"other",date:isDate(t.date)?t.date:today(),note:String(t.note||"").slice(0,200),created:+t.created||Date.now()};if(typeof t.receipt==="string"&&t.receipt)o.receipt=sid(t.receipt);
@@ -524,7 +540,8 @@ async function doImport(text){try{const d=clean(await decode(text));if(!d.books.
   catch(e){err("That isn't a Khoroch code or backup file. Copy the whole code and try again.")}}
 function summaryText(b){
   if(b.type==="card"){const st=cardStats(b,ui.fy||0),c=st.c;
-    return `*${b.name}*\nFee year ${longDate(st.fy.start)} to ${longDate(st.fy.end)}\nQualifying transactions: ${st.count} of ${c.target}. ${st.line}\nSpent: ${fmt(st.spend,b.cur)} across ${st.list.length} transactions\n\nEach month:\n${st.months.filter(m=>m.cnt||m.not).map(m=>`• ${monthLabel(m.ym)}: ${m.cnt} counted, ${m.not} not counted, ${fmt(m.amt,b.cur)}`).join("\n")||"• No transactions yet"}`}
+    const nb=nextBill(b),bs=nb&&billStatus(nb);
+    return `*${b.name}*\n${nb?`Bill: ${fmt(nb.due,b.cur)}${nb.dueDate?", pay by "+longDate(nb.dueDate):""}. ${bs.txt}\n`:""}Fee year ${longDate(st.fy.start)} to ${longDate(st.fy.end)}\nQualifying transactions: ${st.count} of ${c.target}. ${st.line}\nSpent: ${fmt(st.spend,b.cur)} across ${st.list.length} transactions\n\nEach month:\n${st.months.filter(m=>m.cnt||m.not).map(m=>`• ${monthLabel(m.ym)}: ${m.cnt} counted, ${m.not} not counted, ${fmt(m.amt,b.cur)}`).join("\n")||"• No transactions yet"}`}
   if(b.type==="trip"){const s=summary(b),x=transfers(s.net);
     return `*${b.name}*\nTotal spent: ${fmt(s.total,b.cur)} (${fmt(s.total/(heads(b)||1),b.cur)} per person)\n\nTo settle up:\n${x.length?x.map(t=>`• ${mname(b,t.from)} pays ${mname(b,t.to)} ${fmt(t.amount,b.cur)}`).join("\n"):"• Everyone is settled"}\n\nBalances:\n${b.members.map(m=>{const r=Math.round(s.net[m.id]);return `• ${m.name}: paid ${fmt(s.paid[m.id],b.cur)}, share ${fmt(s.share[m.id],b.cur)}, ${r>0?"gets back "+fmt(r,b.cur):r<0?"owes "+fmt(-r,b.cur):"settled"}`}).join("\n")}`}
   const l=txOf(b).filter(t=>(t.date||"").startsWith(ui.month)),tot=spent(l);
@@ -638,13 +655,21 @@ const A={
   rvall(){const rs=ui.sheet.st.rows,on=!rs.every(r=>r.on||r.dup);rs.forEach(r=>{if(!r.dup)r.on=on});drawSheet()},
   stmtpw(){const v=($("#st-pw")||{}).value||"";if(!v)return err("Enter the statement password.");handleStatement(ui.sheet.st.file,v)},
   stmtadd(){addStatement()},
-  stmt(d){openSheet("stmtinfo",{sid:d.id})},
+  stmt(d){const x=(curBook().statements||[]).find(s=>s.id===d.id);openSheet("stmtinfo",{sid:d.id,bill:billOf(x)})},
+  addbill(){openSheet("stmtinfo",{sid:"",bill:billOf()});setTimeout(()=>{const i=$('[data-bl="due"]');i&&i.focus()},80)},
+  paymode(d){ui.sheet.bill.pay=d.m;drawSheet();if(d.m==="custom")setTimeout(()=>{const i=$("#bl-amt");i&&i.focus()},40)},
+  billsave(){const b=curBook(),v=billVals();if(v.e)return err(v.e);const id=ui.sheet.sid;
+    if(!id&&!v.due&&!v.dueDate)return err("Enter the outstanding amount or the last date of payment.");
+    delete v.e;if(id){const x=(b.statements||[]).find(s=>s.id===id);if(x)Object.assign(x,v)}
+    else b.statements=(b.statements||[]).concat([Object.assign({id:"s"+uid(),file:"",from:"",to:"",count:0,total:0,added:Date.now()},v)]);
+    save();closeSheet();render();toast(v.paid>0&&v.paid>=v.due?"Bill marked as paid":id?"Bill saved":"Bill added",true)},
   "stmtdel-yes"(){const b=curBook(),id=ui.sheet.sid;S.tx=S.tx.filter(t=>!(t.bookId===b.id&&t.stmt===id));b.statements=(b.statements||[]).filter(x=>x.id!==id);save();closeSheet();render();toast("Statement removed")},
   doimport(){const v=$("#imp").value;if(!v.trim())return err("Paste a code or choose a file first.");doImport(v)}
 };
 document.addEventListener("click",e=>{const el=e.target.closest("[data-a]");if(el&&!el.disabled&&A[el.dataset.a]){A[el.dataset.a](el.dataset);return}if(e.target===$("#scrim"))closeSheet()});
 document.addEventListener("input",e=>{const d=e.target.dataset;
   if(F&&d.f){if(F.filled&&F.filled[d.f]){delete F.filled[d.f];e.target.classList.remove("filled")}const p=d.f.split(".");if(p[1])F[p[0]][p[1]]=e.target.value;else F[d.f]=e.target.value;preview()}
+  if(ui.sheet&&ui.sheet.bill&&d.bl){ui.sheet.bill[d.bl]=e.target.value;if(ui.sheet.bill.auto)delete ui.sheet.bill.auto[d.bl];e.target.classList.remove("filled");billPreview()}
   if(B&&d.b){const p=d.b.split(".");if(p[1])B[p[0]][p[1]]=e.target.value;else B[d.b]=e.target.value}if(B&&d.bm!==undefined)B.members[+d.bm].name=e.target.value});
 document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(!$("#viewer").hidden)A.closeviewer();else if(ui.sheet)closeSheet()});
 $("#sfile").addEventListener("change",e=>{const f=e.target.files[0];e.target.value="";if(f)handleStatement(f)});
@@ -842,13 +867,14 @@ function cardView(b){const off=ui.fy||0,st=cardStats(b,off),c=st.c,list=st.list;
   const pill={done:'<span class="pill ok">Done</span>',ontrack:'<span class="pill ok">On track</span>',behind:'<span class="pill bad">Behind</span>',missed:'<span class="pill bad">Missed</span>'}[st.status];
   const paceAt=st.past||st.done?-1:Math.min(c.target-1,Math.floor(st.expected));
   const head=`${topbar(b)}
+  ${billCard(b)}
   <div class="monthnav"><button class="iconbtn" data-a="fy" data-d="-1" aria-label="Previous fee year">${ico(I.left)}</button><b class="num" style="font-size:1rem;text-align:center">${longDate(st.fy.start)} to ${longDate(st.fy.end)}</b><button class="iconbtn" data-a="fy" data-d="1" aria-label="Next fee year"${off>=0?" disabled style='opacity:.35'":""}>${ico(I.right)}</button></div>
   <section class="totals"><span class="eyebrow">Qualifying transactions</span><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><b class="big num">${st.count} of ${c.target}</b>${pill}</div>
     <div class="sub num"><span>${st.line}</span>${c.fee&&!st.past?`<span>Saves the ${fmt(c.fee,b.cur)} annual fee</span>`:""}</div></section>
   <div class="card ruled"><div class="punch" role="img" aria-label="${st.count} of ${c.target} qualifying transactions${paceAt>=0?". By today you should have about "+Math.round(st.expected):""}">${Array.from({length:Math.min(c.target,120)},(_,i)=>`<i class="${i<st.count?"on":""}${i===paceAt?" pace":""}"></i>`).join("")}</div>
     ${paceAt>=0?`<div class="pnote">The dashed circle is where you'd be at an even pace today.</div>`:""}</div>
   <div class="tabs"><button aria-pressed="${ui.tab==="overview"}" data-a="tab" data-t="overview">Overview</button><button aria-pressed="${ui.tab==="log"}" data-a="tab" data-t="log">Transactions</button></div>`;
-  if(!list.length&&!(b.statements||[]).length)return head+`<div class="empty">No transactions in this fee year yet. Tap <b>Add</b> to upload a monthly statement (PDF, photo or CSV) or add one by hand.</div><button class="fab" data-a="addtx">+ Add</button>`;
+  if(!list.length&&!(b.statements||[]).length)return head+`<div class="empty">No transactions in this fee year yet. Tap <b>Add</b> to upload a monthly statement (PDF, photo or CSV), add a bill, or add a transaction by hand.</div><button class="fab" data-a="addtx">+ Add</button>`;
   let body;
   if(ui.tab==="overview"){const ms=st.months,lab=ms.map(m=>new Date(m.ym+"-01T00:00:00").toLocaleDateString("en-GB",{month:"short"}));
     ui.isoData.cmon={labels:lab,a:ms.map(m=>m.cnt),b:ms.map(m=>m.not)};
@@ -858,7 +884,7 @@ function cardView(b){const off=ui.fy||0,st=cardStats(b,off),c=st.c,list=st.list;
     ${isoCard("camt","Spending each month",ms.map(m=>m.amt),lab)}
     ${tys.length?`<section><h2>By transaction type</h2><div class="card ruled">${tys.map(([k,v])=>`<div class="trow"><span><b>${CT[k][0]}</b></span><span class="meta num">${v.n} ${v.n===1?"transaction":"transactions"}, ${fmt(v.amt,b.cur)}${v.ok&&v.ok<v.n?`, ${v.ok} counted`:""}</span><span class="pill ${c.rules[k]?"ok":"wait"}">${c.rules[k]?"Counts":"Doesn't count"}</span></div>`).join("")}</div></section>`:""}
     ${list.length?`<section><h2>Where it went</h2>${catBlock(list,b.cur)}</section>`:""}
-    ${(b.statements||[]).length?`<section><h2>Statements</h2><div class="card ruled">${b.statements.slice().sort((x,y)=>(y.to||"").localeCompare(x.to||"")).map(x=>`<button class="tx" data-a="stmt" data-id="${esc(x.id)}">${ico(I.file)}<span class="d">${x.to?"To "+longDate(x.to):"Statement"}</span><span class="a num">${fmt(x.total,b.cur)}</span><span class="s">${x.count} ${x.count===1?"transaction":"transactions"}${x.file?", "+esc(x.file):""}</span></button>`).join("")}</div></section>`:""}`}
+    ${(b.statements||[]).length?`<section><h2>Bills and statements</h2><div class="card ruled">${b.statements.slice().sort((x,y)=>stKey(y).localeCompare(stKey(x))).map(x=>{const bs=billStatus(x);return `<button class="tx" data-a="stmt" data-id="${esc(x.id)}">${ico(I.file)}<span class="d">${x.dueDate?"Bill due "+longDate(x.dueDate):x.to?"Statement to "+longDate(x.to):"Statement"}</span><span class="a num">${fmt(x.due||x.total,b.cur)}</span><span class="s">${bs?`<span class="${bs.cls==="bad"?"neg":bs.cls==="ok"?"pos":""}">${bs.txt}</span>`:"No bill details yet. Tap to add them"}${x.count?`, ${x.count} ${x.count===1?"transaction":"transactions"}`:""}</span></button>`}).join("")}</div></section>`:""}`}
   else{const kinds=["All","yes","no",...Object.keys(CT).filter(k=>st.types[k])];if(!kinds.includes(ui.filter))ui.filter="All";
     const shown=list.filter(x=>ui.filter==="All"||(ui.filter==="yes"?x._v.ok:ui.filter==="no"?!x._v.ok:(x.ctype||"purchase")===ui.filter));
     const g={};shown.forEach(x=>(g[x.date.slice(0,7)]=g[x.date.slice(0,7)]||[]).push(x));
@@ -879,11 +905,73 @@ function cardRulesFields(){const r=B.card.rules;
   <div class="f">Which transactions count toward the waiver?<span style="font-weight:400">Tap to switch each type on or off. Set these from your bank's current terms, since every card is different.</span>
     ${pick(Object.keys(CT).map(k=>({id:k,name:CT[k][0]})),Object.keys(CT).filter(k=>r[k]),"crule")}</div>`}
 function cardAddSheet(){const o=(a,i,t,d)=>`<button class="opt" data-a="${a}">${ico(i)}<span><b>${t}</b><span>${d}</span></span></button>`;
-  return head("Add to "+esc(curBook().name))+o("upstmt",I.up,"Upload a monthly statement","PDF, photo or CSV. You check the list before anything is added.")+o("addone",I.plus,"Add one transaction","Type in a single purchase yourself")}
-function stmtInfoSheet(){const b=curBook(),x=(b.statements||[]).find(s=>s.id===ui.sheet.sid);if(!x)return head("Statement")+"<p>This statement was removed.</p>";const n=txOf(b).filter(t=>t.stmt===x.id).length;
-  return head("Statement")+`<div class="preview num"><div class="r"><span>Transactions</span><b>${x.from?longDate(x.from)+" to "+longDate(x.to):"Dates not found"}</b></div><div class="r"><span>Added</span><b>${n} ${n===1?"transaction":"transactions"}, ${fmt(x.total,b.cur)}</b></div>${x.file?`<div class="r"><span>File</span><b>${esc(x.file)}</b></div>`:""}</div>
-    ${ui.sheet.confirm?`<div class="confirm">Remove this statement and its ${n} ${n===1?"transaction":"transactions"}?<div class="actions"><button class="btn danger" style="flex:1" data-a="stmtdel-yes">Remove</button><button class="btn" data-a="noconfirm">Keep</button></div></div>`:`<div class="actions"><button class="btn danger" data-a="confirm" style="flex:1">Remove statement</button></div>`}`}
+  return head("Add to "+esc(curBook().name))+o("upstmt",I.up,"Upload a monthly statement","PDF, photo or CSV. You check the list before anything is added.")+o("addbill",I.file,"Add a bill","Amount due, payment due date and what you've paid")+o("addone",I.plus,"Add one transaction","Type in a single purchase yourself")}
+function stmtInfoSheet(){const b=curBook(),x=ui.sheet.sid?(b.statements||[]).find(s=>s.id===ui.sheet.sid):null;if(ui.sheet.sid&&!x)return head("Bill")+"<p>This statement was removed.</p>";
+  const n=x?txOf(b).filter(t=>t.stmt===x.id).length:0;
+  let h=head(x?(x.dueDate?"Bill due "+longDate(x.dueDate):"Bill and statement"):"Add a bill")+billFields(b)+`<div class="err" id="err" role="alert"></div><div class="actions"><button class="btn primary" data-a="billsave">${x?"Save":"Add bill"}</button></div>`;
+  if(!x)return h;
+  if(x.count||x.file)h+=`<h3 class="subhead">Statement</h3><div class="preview num"><div class="r"><span>Transactions</span><b>${x.from?longDate(x.from)+" to "+longDate(x.to):"Dates not found"}</b></div><div class="r"><span>Added</span><b>${n} ${n===1?"transaction":"transactions"}, ${fmt(x.total,b.cur)}</b></div>${x.file?`<div class="r"><span>File</span><b>${esc(x.file)}</b></div>`:""}</div>`;
+  return h+(ui.sheet.confirm?`<div class="confirm">Remove this ${n?`statement and its ${n} ${n===1?"transaction":"transactions"}`:"bill"}?<div class="actions"><button class="btn danger" style="flex:1" data-a="stmtdel-yes">Remove</button><button class="btn" data-a="noconfirm">Keep</button></div></div>`:`<div class="actions"><button class="btn danger" data-a="confirm" style="flex:1">Remove ${n?"statement":"bill"}</button></div>`)}
 
+/* ---------- credit cards: bills and payments ---------- */
+const shortDate=s=>new Date(s+"T00:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short"});
+const stKey=x=>x.dueDate||x.to||"";
+const r2=n=>Math.round((+n||0)*100)/100;
+function billStatus(x){if(!x||!(x.due>0))return null;const left=r2(Math.max(0,x.due-(x.paid||0))),t=today();
+  if(left<=0)return{left:0,cls:"ok",txt:"Paid in full"+(x.paidOn?" on "+shortDate(x.paidOn):"")};
+  const part=x.paid>0?`Paid ${fmtN(x.paid)}, ${fmtN(left)} left`:"";
+  if(x.dueDate&&x.dueDate<t){const d=Math.round((new Date(t)-new Date(x.dueDate))/864e5);return{left,cls:"bad",txt:(part?part+". ":"")+"Overdue by "+d+(d===1?" day":" days")}}
+  if(x.dueDate){const d=Math.round((new Date(x.dueDate)-new Date(t))/864e5);return{left,cls:d<=5?"bad":"wait",txt:(part?part+". ":"Not paid. ")+(d===0?"Due today":"Due in "+d+(d===1?" day":" days"))}}
+  return{left,cls:"wait",txt:part||"Not paid yet"}}
+let fmtCur="৳";const fmtN=n=>fmt(n,fmtCur);
+function nextBill(b){fmtCur=b.cur;const l=(b.statements||[]).filter(x=>x.due>0).sort((x,y)=>stKey(y).localeCompare(stKey(x)));
+  return l.find(x=>billStatus(x).left>0&&x.dueDate&&x.dueDate<today())||l[0]||null}
+function billCard(b){const x=nextBill(b);
+  if(!x)return `<button class="billcard empty-bill" data-a="addbill">${ico(I.plus)}<span><b>Add this month's bill</b><span>Amount due, payment due date and what you've paid</span></span></button>`;
+  const bs=billStatus(x),pct=Math.min(100,(x.paid||0)/x.due*100);
+  return `<section class="billcard ${bs.cls}"><div class="bc-top"><span class="eyebrow">${bs.left>0?"Outstanding":"Last bill"}</span><span class="pill ${bs.cls}">${bs.left<=0?"Paid":bs.cls==="bad"&&x.dueDate&&x.dueDate<today()?"Overdue":"Due"}</span></div>
+    <b class="big num">${fmt(bs.left>0?bs.left:x.due,b.cur)}</b>
+    <div class="sub num">${x.dueDate?`<span>Pay by ${longDate(x.dueDate)}</span>`:""}${x.min&&bs.left>0?`<span>Minimum ${fmt(x.min,b.cur)}</span>`:""}<span>${bs.left>0&&x.paid>0?`Paid ${fmt(x.paid,b.cur)} of ${fmt(x.due,b.cur)}`:bs.left>0?"Bill "+fmt(x.due,b.cur):bs.txt}</span></div>
+    <div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div>
+    <button class="btn ${bs.left>0?"primary":""}" data-a="stmt" data-id="${esc(x.id)}">${bs.left>0?"Record payment":"View bill"}</button></section>`}
+function billOf(x){x=x||{};const due=x.due||"",paid=x.paid||0,min=x.min||"";
+  return{due:due?String(due):"",min:min?String(min):"",dueDate:x.dueDate||"",paidOn:x.paidOn||today(),
+    pay:!paid?"none":due&&Math.abs(paid-due)<.005?"full":min&&Math.abs(paid-min)<.005?"min":"custom",amt:paid&&!(due&&Math.abs(paid-due)<.005)&&!(min&&Math.abs(paid-min)<.005)?String(paid):""}}
+function billFields(b,noPay){const L=ui.sheet.bill||(ui.sheet.bill=billOf()),c=esc(b.cur),seg=(m,t)=>`<button type="button" data-a="paymode" data-m="${m}" aria-pressed="${L.pay===m}">${t}</button>`;
+  const due=+L.due||0,min=+L.min||0,paid=L.pay==="full"?due:L.pay==="min"?min:L.pay==="custom"?+L.amt||0:0,left=r2(Math.max(0,due-paid));
+  return `<div class="grid2"><label class="f">Outstanding amount (${c})<input class="amount num${L.auto&&L.auto.due?" filled":""}" data-bl="due" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${esc(L.due)}"></label>
+    <label class="f">Minimum due (${c})<input class="num${L.auto&&L.auto.min?" filled":""}" data-bl="min" type="number" inputmode="decimal" min="0" step="any" placeholder="Optional" value="${esc(L.min)}"></label></div>
+    <label class="f">Last date of payment<input class="${L.auto&&L.auto.dueDate?"filled":""}" data-bl="dueDate" type="date" value="${esc(L.dueDate)}"></label>
+    ${noPay?"":`<div class="f">How much have you paid?<div class="seg seg4">${seg("none","Not yet")}${seg("full","Full")}${seg("min","Minimum")}${seg("custom","Custom")}</div></div>
+    ${L.pay==="custom"?`<label class="f">Amount paid (${c})<input id="bl-amt" class="num" data-bl="amt" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${esc(L.amt)}"></label>`:""}
+    ${L.pay!=="none"?`<label class="f">Paid on<input data-bl="paidOn" type="date" value="${esc(L.paidOn)}"></label>`:""}
+    <div class="preview num" id="bl-sum"><div class="r"><span>Paid</span><b>${fmt(paid,b.cur)}</b></div><div class="r"><span>Still to pay</span><b class="${left>0?"neg":"pos"}">${fmt(left,b.cur)}</b></div></div>`}`}
+function billVals(){const L=ui.sheet.bill||billOf(),due=r2(L.due),min=r2(L.min);
+  if(L.due!==""&&!(due>=0))return{e:"Enter the outstanding amount as a number."};
+  if(min>due&&due>0)return{e:"The minimum due can't be more than the outstanding amount."};
+  const paid=L.pay==="full"?due:L.pay==="min"?min:L.pay==="custom"?r2(L.amt):0;
+  if(L.pay==="custom"&&!(paid>0))return{e:"Enter how much you paid."};
+  if(L.pay==="full"&&!(due>0))return{e:"Enter the outstanding amount first."};
+  if(L.pay==="min"&&!(min>0))return{e:"Enter the minimum due first."};
+  return{due,min,dueDate:isDate(L.dueDate)?L.dueDate:"",paid,paidOn:paid>0&&isDate(L.paidOn)?L.paidOn:""}}
+function billPreview(){const s=$("#bl-sum");if(!s||!ui.sheet||!ui.sheet.bill)return;const b=curBook(),L=ui.sheet.bill,due=+L.due||0,min=+L.min||0,paid=L.pay==="full"?due:L.pay==="min"?min:L.pay==="custom"?+L.amt||0:0,left=r2(Math.max(0,due-paid));
+  s.innerHTML=`<div class="r"><span>Paid</span><b>${fmt(paid,b.cur)}</b></div><div class="r"><span>Still to pay</span><b class="${left>0?"neg":"pos"}">${fmt(left,b.cur)}</b></div>`}
+function findBill(text){const lines=String(text||"").split(/\r?\n/).map(l=>l.replace(/\s+/g," ").trim()).filter(Boolean),MR="(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?",MON={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+  const DATE=[[/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?!\d)/,m=>[+m[1],+m[2],+m[3]]],[/(?<!\d)(\d{1,2})[-/.](\d{1,2})[-/.](\d{4}|\d{2})(?!\d)/,m=>[+m[3],+m[2],+m[1]]],
+    [new RegExp("(?<!\\d)(\\d{1,2})(?:st|nd|rd|th)?[\\s\\-/.]?"+MR+"[\\s\\-/.,']+(\\d{4}|\\d{2})(?!\\d)","i"),m=>[+m[3],MON[m[2].toLowerCase().slice(0,3)],+m[1]]],
+    [new RegExp(MR+"\\s+(\\d{1,2}),?\\s+(\\d{4})","i"),m=>[+m[3],MON[m[1].toLowerCase().slice(0,3)],+m[2]]]];
+  const dateIn=l=>{for(const[re,f]of DATE){const m=l.match(re);if(m){let[y,mo,d]=f(m);if(y<100)y+=2000;if(mo>=1&&mo<=12&&d>=1&&d<=31)return{d:mkd(y,mo,d),i:m.index,len:m[0].length}}}return null};
+  const amtIn=l=>{let x=l;for(let k=0;k<3;k++){const dd=dateIn(x);if(!dd)break;x=x.slice(0,dd.i)+" "+x.slice(dd.i+dd.len)}
+    const all=[...x.matchAll(/(?<![\d.])(\d{1,3}(?:,\d{2,3})+|\d+)(\.\d{1,2})?(?![\d%])/g)].map(m=>({v:parseFloat((m[1]+(m[2]||"")).replace(/,/g,"")),dec:!!m[2]})).filter(m=>m.v>0&&m.v<1e8);
+    return(all.find(m=>m.dec)||all.find(m=>m.v>=10)||{}).v||0};
+  const DUE=/\b(total (amount )?due|total outstanding|total payable|amount payable|outstanding (balance|amount)|new balance|closing balance|statement balance|current balance|total balance)\b/i,
+    MIN=/\bmin(imum)?\.? (amount |payment )?(due|payable|payment)\b/i,DD=/\b(payment due date|due date|pay by|last (date|day) (of|for) (payment|pay)|payment date)\b/i;
+  const r={due:0,min:0,dueDate:""};
+  lines.forEach((l,i)=>{const nx=lines[i+1]||"";
+    if(!r.dueDate&&DD.test(l)){const t=l.slice(l.search(DD));const d=dateIn(t)||dateIn(nx);if(d)r.dueDate=d.d}
+    if(!r.min&&MIN.test(l)){const t=l.slice(l.search(MIN));r.min=amtIn(t.replace(MIN,""))||(!/\d/.test(t.replace(MIN,""))?amtIn(nx):0)}
+    if(!r.due&&DUE.test(l)){let t=l.slice(l.search(DUE));const mi=t.search(MIN);if(mi>0)t=t.slice(0,mi);r.due=amtIn(t.replace(DUE,""))||(!/\d/.test(t.replace(DUE,""))?amtIn(nx):0)}});
+  if(r.min>r.due&&r.due)r.min=0;return r}
 /* ---------- credit cards: reading statements ---------- */
 const STMT={tok:0};
 function parseStatement(text){const MON={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12},MR="(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?";
@@ -914,7 +1002,7 @@ function parseStatement(text){const MON={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul
   let defY=+Object.keys(cnt).sort((p,q)=>cnt[q]-cnt[p])[0]||0;if(!defY){const t=String(text).match(/\b20\d{2}\b/g)||[],c2={};t.forEach(y=>c2[y]=(c2[y]||0)+1);defY=+Object.keys(c2).sort((p,q)=>c2[q]-c2[p])[0]||+today().slice(0,4)}
   const t=today(),rows=raw.map(r=>{let y=r.y?(r.y<100?r.y+2000:r.y):defY,date=mkd(y,r.mo,r.d);if(!r.y&&date>addDays(t,1))date=mkd(y-1,r.mo,r.d);return{date,desc:r.desc,amount:Math.round(r.amount*100)/100}})
     .filter(r=>r.date<=addDays(t,1));
-  const ds=rows.map(r=>r.date).sort();return{rows,credits,from:ds[0]||"",to:ds[ds.length-1]||""}}
+  const ds=rows.map(r=>r.date).sort();return{rows,credits,from:ds[0]||"",to:ds[ds.length-1]||"",bill:findBill(text)}}
 const csvLines=t=>String(t).split(/\r?\n/).map(l=>{const out=[];let cur="",q=false;for(const ch of l){if(ch==='"')q=!q;else if((ch===","||ch===";"||ch==="\t")&&!q){out.push(cur);cur=""}else cur+=ch}out.push(cur);
   const cells=out.map(c=>c.trim()).filter(Boolean),di=cells.findIndex(c=>/^\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}$|^\d{1,2}[\s-][a-z]{3}/i.test(c));if(di>0)cells.unshift(cells.splice(di,1)[0]);
   const ai=cells.map((c,i)=>/^\(?-?[\d,]+\.\d{2}\)?(\s*(cr|dr))?$/i.test(c)?i:-1).filter(i=>i>=0).pop();if(ai!=null&&ai<cells.length-1)cells.push(cells.splice(ai,1)[0]);return cells.join(" ")}).join("\n");
@@ -938,6 +1026,7 @@ async function handleStatement(file,pw){const b=curBook();if(!b||b.type!=="card"
     else text=csvLines(await file.text());
     if(!alive())return;const r=parseStatement(text),have=new Set(txOf(b).map(x=>x.date+"|"+(+x.amount).toFixed(2)+"|"+x.desc.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,12)));
     const rows=r.rows.map(x=>{const ct=classify(x.desc),dup=have.has(x.date+"|"+x.amount.toFixed(2)+"|"+x.desc.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,12));return Object.assign(x,{ctype:ct,cat:guessCat(x.desc,ct),dup,on:!dup})});
+    const fb=r.bill;ui.sheet.bill=Object.assign(billOf({due:fb.due,min:fb.min,dueDate:fb.dueDate}),{auto:{due:!!fb.due,min:!!fb.min,dueDate:!!fb.dueDate}});
     ui.sheet.st={state:rows.length?"review":"error",file,rows,credits:r.credits,from:r.from,to:r.to,msg:rows.length?"":"No transactions were found in this file. Statements with a date at the start of each line and the amount at the end work best. A text PDF from the bank works better than a photo."};
     drawSheet()}
   catch(e){OCR.cb=null;if(!alive())return;const m=String(e&&e.message||e);
@@ -951,15 +1040,18 @@ function stmtSheet(){const st=ui.sheet.st||{},b=curBook(),c=cardOf(b);let h=head
   const on=st.rows.filter(r=>r.on),dups=st.rows.filter(r=>r.dup).length,sum=on.reduce((a,r)=>a+r.amount,0),cnt=on.filter(r=>verdict(r,c,b.cur).ok).length;
   h+=`<div class="preview num"><div class="r"><span>Dates</span><b>${longDate(st.from)} to ${longDate(st.to)}</b></div><div class="r"><span>Selected</span><b>${on.length} for ${fmt(sum,b.cur)}</b></div><div class="r"><span>Count toward the waiver</span><b>${cnt}</b></div>
     ${st.credits?`<div class="r muted"><span>Payments and refunds skipped</span><b>${st.credits}</b></div>`:""}${dups?`<div class="r muted"><span>Already in this card, not selected</span><b>${dups}</b></div>`:""}</div>
+  <h3 class="subhead">This month's bill</h3>${ui.sheet.bill&&ui.sheet.bill.auto&&(ui.sheet.bill.auto.due||ui.sheet.bill.auto.dueDate)?`<p class="muted" style="margin:0;font-size:.92rem">Read from the statement. Check them, then fix anything that's wrong.</p>`:`<p class="muted" style="margin:0;font-size:.92rem">Not found in the file. Type them in from the statement, or leave them empty.</p>`}
+  ${billFields(b,true)}
+  <h3 class="subhead">Transactions</h3>
   <p class="muted" style="margin:0;font-size:.92rem">Untick anything that isn't a purchase. You can change a transaction's type later.</p>
   <button type="button" class="link" data-a="rvall" style="align-self:flex-start">${st.rows.every(r=>r.on||r.dup)?"Untick all":"Tick all"}</button>
   <div class="rvlist">${st.rows.map((r,i)=>{const v=verdict(r,c,b.cur);return `<button type="button" class="rv" data-a="rvtoggle" data-i="${i}" aria-pressed="${r.on}"><span class="box">${ico("M5 12l5 5 9-10")}</span><span class="d">${esc(r.desc)}</span><span class="a num">${fmt(r.amount,b.cur)}</span>
     <span class="s">${new Date(r.date+"T00:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short"})}, ${CT[r.ctype][0]}. <span class="${v.ok?"yes":"no"}">${v.ok?"Counts":v.why}</span>${r.dup?". Already added":""}</span></button>`}).join("")}</div>
   <div class="err" id="err" role="alert"></div><div class="actions"><button class="btn primary" data-a="stmtadd"${on.length?"":" disabled"}>Add ${on.length} ${on.length===1?"transaction":"transactions"}</button></div>`;
   return h}
-function addStatement(){const b=curBook(),st=ui.sheet.st,on=st.rows.filter(r=>r.on);if(!on.length)return;const id="s"+uid(),now=Date.now();
+function addStatement(){const b=curBook(),st=ui.sheet.st,on=st.rows.filter(r=>r.on);if(!on.length)return;const bv=billVals();if(bv.e)return err(bv.e);delete bv.e;const id="s"+uid(),now=Date.now();
   on.forEach((r,i)=>S.tx.push({id:uid(),bookId:b.id,kind:"expense",amount:r.amount,desc:r.desc,cat:r.cat,ctype:r.ctype,date:r.date,note:"",stmt:id,created:now+i}));
-  b.statements=(b.statements||[]).concat([{id,file:(st.file&&st.file.name||"").slice(0,120),from:st.from,to:st.to,count:on.length,total:Math.round(on.reduce((a,r)=>a+r.amount,0)*100)/100,added:now}]);
+  b.statements=(b.statements||[]).concat([{id,file:(st.file&&st.file.name||"").slice(0,120),from:st.from,to:st.to,count:on.length,total:Math.round(on.reduce((a,r)=>a+r.amount,0)*100)/100,added:now,due:bv.due,min:bv.min,dueDate:bv.dueDate,paid:0,paidOn:""}]);
   save();closeSheet();ui.tab="overview";render();toast(`Added ${on.length} ${on.length===1?"transaction":"transactions"}`,true)}
 
 /* ---------- credit cards: chart ---------- */

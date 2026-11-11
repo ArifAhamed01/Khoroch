@@ -35,6 +35,7 @@ Many cards waive the yearly fee after a set number of transactions, and every ba
 - **Each card has its own rules:** transactions needed, the date the fee year starts, an optional minimum amount, the annual fee, and which kinds of transaction count (card purchase, online, QR payment, mobile recharge, utility bill, wallet or transfer, cash withdrawal, EMI, fees).
 - **Upload a monthly statement** as a PDF (password-protected ones too), a photo or a CSV. Khoroch lists the transactions, skips payments and refunds, marks anything already added, and lets you untick lines before adding them.
 - **Each transaction gets a type** from its description, for example "BANGLA QR" becomes a QR payment and "GP RECHARGE" a mobile recharge. You can change the type, or mark a single transaction as counting or not counting.
+- **Track each month's bill:** the outstanding amount, the minimum due and the last date of payment are read from the statement, or you can type them in. Record what you paid as the full amount, the minimum, or any custom amount, with the date. The card shows what's still to pay and warns you as the due date gets close or passes.
 - **See your progress:** a punch card of qualifying transactions with an even-pace marker, transactions each month (counted and not counted), spending each month, and breakdowns by type and category. Past fee years are kept.
 - Statement passwords are used only to open the file and are never saved.
 
