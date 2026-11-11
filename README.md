@@ -21,7 +21,7 @@ Khoroch (খরচ, "expense" in Bangla) is a lightweight expense app that insta
 - Balances show what each member paid, their fair share and the cost per person.
 
 ### Daily ledger
-- Log personal spending by category: food, transport, stay, sightseeing, shopping, bills, health, fun and other.
+- Log personal spending by category: food, transport, accommodation, sightseeing, shopping, bills, health, fun and other.
 - Set an optional **monthly budget** to see what's left and how much you can spend per day.
 - Browse month by month, with daily totals and a category breakdown.
 
