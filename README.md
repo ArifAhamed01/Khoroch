@@ -25,6 +25,11 @@ Khoroch (খরচ, "expense" in Bangla) is a lightweight expense app that insta
 - Set an optional **monthly budget** to see what's left and how much you can spend per day.
 - Browse month by month, with daily totals and a category breakdown.
 
+### Sync and shared trips (optional)
+- **Sign in** with Google or email to keep your khatas on every phone and computer. Everything still saves on the device first, so the app keeps working offline and uploads when you're back online.
+- **Share a trip** with an invite link. Friends who join can add and edit expenses, and everyone sees changes live.
+- Runs on your own free Firebase project. Follow [SYNC_SETUP.md](SYNC_SETUP.md) to turn it on. Without it, Khoroch stays offline-only and nothing leaves the phone.
+
 ### Credit card fee waivers
 Many cards waive the yearly fee after a set number of transactions, and every bank counts differently. A **Credit card** khata tracks this for each card.
 - **Each card has its own rules:** transactions needed, the date the fee year starts, an optional minimum amount, the annual fee, and which kinds of transaction count (card purchase, online, QR payment, mobile recharge, utility bill, wallet or transfer, cash withdrawal, EMI, fees).
@@ -91,13 +96,16 @@ Once it's hosted, [PWABuilder](https://www.pwabuilder.com) can package the URL a
 |---|---|
 | `index.html` | The whole app: markup, styles and script in one file |
 | `sw.js` | Service worker that caches the app for offline use |
+| `firebase-config.js` | Your Firebase project settings for sync. Empty means offline-only |
+| `firestore.rules` | Database security rules to paste into Firebase |
+| `SYNC_SETUP.md` | Step-by-step guide to turn on sync and shared trips |
 | `manifest.webmanifest` | Name, colours and icons used when installing |
 | `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` | App icons |
 | `screenshots/` | Images used in this README |
 
 ## Privacy
 
-Your data and bill photos are saved in your browser's storage on your own device. Bills are read on the phone itself, and nothing is uploaded anywhere. Clearing the browser's site data deletes it, so use **Share → Back up everything** now and then.
+Without sync, your data and bill photos are saved only in your browser's storage on your own device. With sync turned on, your khatas are stored in your own Firebase project and only the accounts you invite can read them. Bill photos never leave the phone. Bills are read on the phone itself, and nothing is uploaded anywhere. Clearing the browser's site data deletes it, so use **Share → Back up everything** now and then.
 
 ## Built with
 

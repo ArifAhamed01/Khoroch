@@ -198,6 +198,16 @@ pre.ocr{white-space:pre-wrap;word-break:break-word;font:12px/1.45 ui-monospace,M
 .viewer .x{align-self:flex-end;color:#fff;margin:6px}
 .viewer img{flex:1;min-height:0;width:100%;object-fit:contain}
 .clip{width:14px;height:14px;vertical-align:-2px}
+.syncbar{display:grid;grid-template-columns:auto 1fr auto;gap:2px 12px;align-items:center;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:14px;padding:12px 14px;min-height:60px}
+.syncbar .ic{grid-row:1/span 2;color:var(--primary-ink)}
+.syncbar b{font-weight:600}.syncbar span{font-size:.9rem;color:var(--muted);grid-column:2}
+.syncbar .go{grid-row:1/span 2;grid-column:3;color:var(--muted)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px;background:var(--line-strong)}
+.dot.on{background:var(--pos)}.dot.warn{background:var(--neg)}
+.or{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:.9rem}
+.or::before,.or::after{content:"";flex:1;border-top:1px solid var(--line)}
+.gbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--fg);border-radius:14px;padding:13px;min-height:54px;font-weight:600;font-size:1.02rem}
+.note{background:var(--sunk);border-radius:12px;padding:12px 14px;font-size:.95rem}
 .punch{display:grid;grid-template-columns:repeat(auto-fill,minmax(26px,1fr));gap:8px 6px;padding:16px 16px 16px 36px}
 .punch i{display:block;aspect-ratio:1;border-radius:50%;border:2px solid var(--line-strong);background:var(--paper)}
 .punch i.on{background:var(--primary);border-color:var(--primary);box-shadow:inset 0 -3px 0 rgba(0,0,0,.18)}
@@ -245,6 +255,7 @@ canvas.stack{width:100%;height:210px;display:block}
 <input type="file" id="sfile" accept="application/pdf,.pdf,image/*,.csv,text/csv,.txt,text/plain" hidden>
 <div class="viewer" id="viewer" hidden><button class="x" data-a="closeviewer" aria-label="Close">×</button><img id="viewimg" alt="Bill"></div>
 
+<script src="firebase-config.js"></script>
 <script>
 "use strict";
 /* ---------- helpers ---------- */
@@ -263,7 +274,7 @@ const dayLabel=d=>{const x=new Date(d+"T00:00:00");return isNaN(x)?"No date":x.t
 const monthLabel=m=>new Date(m+"-01T00:00:00").toLocaleDateString("en-GB",{month:"long",year:"numeric"});
 const ico=d=>`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
 const I={back:"M15 5l-7 7 7 7",share:"M12 15V4M8 8l4-4 4 4M5 13v6h14v-6",edit:"M4 20h4L19 9l-4-4L4 16z",plus:"M12 5v14M5 12h14",left:"M14 6l-6 6 6 6",right:"M10 6l6 6-6 6",
-  copy:"M9 9h10v11H9zM5 15V4h10",file:"M7 3h7l4 4v14H7zM14 3v4h4",text:"M5 6h14M5 11h14M5 16h9",table:"M4 5h16v14H4zM4 10h16M10 5v14",inbox:"M12 4v10M8 10l4 4 4-4M4 16v4h16v-4",cam:"M4 8h3l2-3h6l2 3h3v11H4zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z",up:"M12 16V5M8 9l4-4 4 4M4 15v5h16v-5"};
+  copy:"M9 9h10v11H9zM5 15V4h10",file:"M7 3h7l4 4v14H7zM14 3v4h4",text:"M5 6h14M5 11h14M5 16h9",table:"M4 5h16v14H4zM4 10h16M10 5v14",inbox:"M12 4v10M8 10l4 4 4-4M4 16v4h16v-4",cam:"M4 8h3l2-3h6l2 3h3v11H4zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z",up:"M12 16V5M8 9l4-4 4 4M4 15v5h16v-5",cloud:"M7 18h10a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.1 9.1 4.5 4.5 0 0 0 7 18z",user:"M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 20a8 8 0 0 1 16 0",people:"M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20a6.5 6.5 0 0 1 13 0M16 4.3a3.5 3.5 0 0 1 0 6.4M18 14.5a6.5 6.5 0 0 1 3.5 5.5"};
 const CLIP=` <svg class="ic clip" viewBox="0 0 24 24" role="img" aria-label="Bill attached"><path d="M20 11.5l-8 8a5 5 0 0 1-7-7l8.5-8.5a3.5 3.5 0 0 1 5 5L10 17.5a2 2 0 0 1-3-3L14.5 7"/></svg>`;
 const CATS={food:["Food",22,"M7 3v7a2 2 0 0 0 4 0V3M9 12v9M17 3c-2.5 2-2.5 8 0 10v8"],
   transport:["Transport",215,"M4 16v-5l2-5h12l2 5v5M4 16h16M6.5 16v2.5M17.5 16v2.5M4 11h16"],
@@ -300,7 +311,7 @@ function demoCard(){const t=today(),d=new Date(t+"T12:00:00");d.setMonth(d.getMo
     const ct=classify(r[0]);tx.push({id:"c"+n,bookId:"demo-card",kind:"expense",desc:r[0],amount:r[1],cat:guessCat(r[0],ct),ctype:ct,date,note:"",created:n++})}});
   return{book,tx}}
 function load(){try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);if(d&&Array.isArray(d.books)&&Array.isArray(d.tx))return d}}catch(e){}return null}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S,(k,v)=>k==="_v"?undefined:v));if(!save.asked&&navigator.storage&&navigator.storage.persist){save.asked=1;navigator.storage.persist().catch(()=>{})}}catch(e){toast("Couldn't save on this device")}}
+function save(){if(!save.quiet)syncSoon();try{localStorage.setItem(KEY,JSON.stringify(S,(k,v)=>k==="_v"?undefined:v));if(!save.asked&&navigator.storage&&navigator.storage.persist){save.asked=1;navigator.storage.persist().catch(()=>{})}}catch(e){toast("Couldn't save on this device")}}
 const book=id=>S.books.find(b=>b.id===id);
 const curBook=()=>book(ui.bookId);
 const txOf=b=>S.tx.filter(t=>t.bookId===b.id);
@@ -338,11 +349,12 @@ function home(){
       sub=`<span>${st.count} of ${c.target} for the fee waiver</span><span>${st.done?"Fee waived this year":"Fee year ends "+longDate(st.fy.end)}</span>`;
       bar=`<div class="bar"><i style="width:${Math.min(100,st.count/c.target*100).toFixed(1)}%"></i></div>`}
     return `<button class="book" style="--h:${+b.hue||230}" data-a="open" data-id="${esc(b.id)}">
-      <span class="book-name">${esc(b.name)} <span class="pill">${b.type==="trip"?"Trip":b.type==="card"?"Credit card"+(b.card&&b.card.last4?" "+esc(b.card.last4):""):"Daily ledger"}</span>${b.sample?'<span class="pill">Sample</span>':""}</span>
+      <span class="book-name">${esc(b.name)} <span class="pill">${b.type==="trip"?"Trip":b.type==="card"?"Credit card"+(b.card&&b.card.last4?" "+esc(b.card.last4):""):"Daily ledger"}</span>${b.sample?'<span class="pill">Sample</span>':""}${b.cloud&&b.cloud.members&&b.cloud.members.length>1?'<span class="pill">Shared</span>':""}</span>
       <span class="book-total num">${total}</span><span class="book-sub">${sub}</span>${bar}</button>`}).join("");
   return `<header class="hero"><canvas id="globe" aria-hidden="true"></canvas>
-    <div class="hero-txt"><div class="brand"><i></i>Khoroch</div><h1>Split trips. Track every day.</h1><p>Works offline. Your data stays on this device.</p>
+    <div class="hero-txt"><div class="brand"><i></i>Khoroch</div><h1>Split trips. Track every day.</h1><p>${SYNC.user?"Works offline and syncs to your account.":"Works offline. Your data stays on this device."}</p>
     ${ui.canInstall?'<button class="btn-ghost" data-a="install">Install app</button>':""}</div></header>
+  ${syncBar()}
   <section><div class="sec-head"><h2>Your khatas</h2><button class="link" data-a="import">Import</button></div>
     <div class="books">${cards||'<div class="empty">No khatas yet. Tap <b>New khata</b> to start a trip, a daily ledger or a credit card.</div>'}</div></section>
   <button class="fab" data-a="newbook">+ New khata</button>`}
@@ -453,8 +465,8 @@ function bookSheet(){const used=new Set();if(B.id)txOf(B).forEach(t=>{Object.key
       <div class="step" title="People"><button type="button" data-a="heads" data-i="${i}" data-d="-1" aria-label="Fewer people">−</button><b class="num">${m.heads}</b><button type="button" data-a="heads" data-i="${i}" data-d="1" aria-label="More people">+</button></div>
       <button type="button" class="x" data-a="rmmember" data-i="${i}" aria-label="Remove"${used.has(m.id)||B.members.length<2?" disabled style='opacity:.3'":""}>×</button></div>`).join("")}
     <button type="button" class="link" data-a="addmember" style="align-self:flex-start">+ Add another</button></div>`;
-  h+=`<div class="err" id="err" role="alert"></div>${ui.sheet.confirm?`<div class="confirm">Delete "${esc(B.name)}" and all its entries from this device?<div class="actions"><button class="btn danger" style="flex:1" data-a="delbook-yes">Delete</button><button class="btn" data-a="noconfirm">Keep</button></div></div>`:""}
-  <div class="actions">${B.id?'<button class="btn danger" data-a="confirm">Delete</button>':""}<button class="btn primary" data-a="savebook">${B.id?"Save":"Create"}</button></div>`;
+  h+=`<div class="err" id="err" role="alert"></div>${ui.sheet.confirm?`<div class="confirm">${delText(B)}<div class="actions"><button class="btn danger" style="flex:1" data-a="delbook-yes">${B.cloud&&SYNC.user&&B.cloud.owner&&B.cloud.owner!==SYNC.user.uid?"Leave":"Delete"}</button><button class="btn" data-a="noconfirm">Keep</button></div></div>`:""}
+  <div class="actions">${B.id?`<button class="btn danger" data-a="confirm">${B.cloud&&SYNC.user&&B.cloud.owner&&B.cloud.owner!==SYNC.user.uid?"Leave":"Delete"}</button>`:""}<button class="btn primary" data-a="savebook">${B.id?"Save":"Create"}</button></div>`;
   return h}
 
 function shareSheet(){const b=curBook(),o=ui.sheet.out;
@@ -465,12 +477,13 @@ function shareSheet(){const b=curBook(),o=ui.sheet.out;
   return head("Share and export")+(b.type==="trip"?opt("summary",I.text,"Summary message","Totals and who pays whom, ready for WhatsApp"):b.type==="card"?opt("summary",I.text,"Fee waiver summary","Progress and month-by-month counts as a message"):opt("summary",I.text,"Month summary","This month's total and categories as a message"))
     +opt("code",I.copy,b.type==="trip"?"Trip code":b.type==="card"?"Card code":"Ledger code","Paste it in a chat. Anyone with Khoroch can import the full book.")
     +opt("csv",I.table,"Spreadsheet (CSV)","Every entry, for Excel or Google Sheets")
+    +(SYNC.cfg&&!b.sample?opt("invite",I.people,"Invite people to edit",SYNC.user?(b.cloud&&b.cloud.members&&b.cloud.members.length>1?`Shared with ${b.cloud.members.length-1} ${b.cloud.members.length===2?"person":"people"}. Send the link to add more.`:"Send a link. Everyone who joins can add and edit entries live."):"Sign in first, then send a link to your trip mates"):"")
     +opt("all",I.file,"Back up everything","All your khatas in one code or file")+'<p class="muted" style="margin:0;font-size:.88rem">Bill photos stay on this phone. They are not included in codes, backups or CSV files.</p>'}
 function importSheet(){return head("Import")+`<p class="muted" style="margin:0">Paste a Khoroch code, or pick a backup file. Importing a book you already have replaces your copy.</p>
   <textarea id="imp" placeholder="KH1Z:…" aria-label="Khoroch code"></textarea><div class="err" id="err" role="alert"></div>
   <div class="actions"><button class="btn" data-a="pickfile">Choose file</button><button class="btn primary" data-a="doimport">Import</button></div>`}
 function openSheet(type,extra){ui.sheet=Object.assign({type},extra||{});drawSheet();$("#scrim").hidden=false}
-function drawSheet(){const s=$("#sheet"),top=s.scrollTop;s.innerHTML={tx:txSheet,book:bookSheet,share:shareSheet,import:importSheet,cardadd:cardAddSheet,stmt:stmtSheet,stmtinfo:stmtInfoSheet}[ui.sheet.type]();s.scrollTop=top;preview()}
+function drawSheet(){const s=$("#sheet"),top=s.scrollTop;s.innerHTML={tx:txSheet,book:bookSheet,share:shareSheet,import:importSheet,cardadd:cardAddSheet,stmt:stmtSheet,stmtinfo:stmtInfoSheet,acct:acctSheet}[ui.sheet.type]();s.scrollTop=top;preview()}
 function closeSheet(){STMT.tok++;if(F&&F.newReceipt&&!F.newReceipt.kept)URL.revokeObjectURL(F.newReceipt.url);OCR.cb=null;ui.sheet=null;F=null;B=null;$("#scrim").hidden=true;$("#sheet").innerHTML=""}
 function toast(msg,coin){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,1900);
   if(coin){try{navigator.vibrate&&navigator.vibrate(12)}catch(e){}const c=document.createElement("div");c.className="coin";document.body.appendChild(c);setTimeout(()=>c.remove(),1000)}}
@@ -586,11 +599,11 @@ const A={
     if(B.type==="trip"){nb.members=B.members.filter(m=>m.name.trim()).map(m=>({id:m.id,name:m.name.trim(),heads:m.heads}));
       if(B.members.some(m=>!m.name.trim())&&B.id&&nb.members.length<B.members.length&&txOf(B).length)return err("Every member needs a name.");
       if(!nb.members.length)return err("Add at least one member.")}
-    const i=S.books.findIndex(x=>x.id===nb.id);if(i>=0)S.books[i]=nb;else S.books.push(nb);save();const isNew=!B.id;closeSheet();
+    if(B.cloud)nb.cloud=B.cloud;const i=S.books.findIndex(x=>x.id===nb.id);if(i>=0)S.books[i]=nb;else S.books.push(nb);save();const isNew=!B.id;closeSheet();
     if(isNew)A.open({id:nb.id});else render();toast(isNew?"Created":"Saved")},
   "delbook-yes"(){txOf(B).forEach(t=>{if(t.receipt)IDB.del(t.receipt).catch(()=>{})});S.tx=S.tx.filter(t=>t.bookId!==B.id);S.books=S.books.filter(b=>b.id!==B.id);save();closeSheet();ui.view="home";render(true);toast("Deleted")},
   share(){openSheet("share")},shback(){ui.sheet.out=null;drawSheet()},
-  async sh(d){const b=curBook(),pack=bs=>({v:1,app:"khoroch",books:bs,tx:S.tx.filter(t=>bs.some(x=>x.id===t.bookId))});let o;
+  async sh(d){if(d.k==="invite")return inviteFlow();const b=curBook(),pack=bs=>({v:1,app:"khoroch",books:bs,tx:S.tx.filter(t=>bs.some(x=>x.id===t.bookId))});let o;
     if(d.k==="summary"){const t=summaryText(b);o={label:"Summary message",text:t,shareText:t}}
     else if(d.k==="csv")o={label:"Spreadsheet (CSV)",text:csv(b),filename:slug(b.name)+".csv",mime:"text/csv"};
     else{const p=pack(d.k==="all"?S.books:[b]),c=await encode(p);o={label:d.k==="all"?"Backup of everything":"Code for "+b.name,text:c,shareText:c,filename:(d.k==="all"?"khoroch-backup":slug(b.name)+"-khoroch")+".json",mime:"application/json",fileText:JSON.stringify(p)}}
@@ -607,6 +620,17 @@ const A={
   viewrcpt(){const u=F&&(F.newReceipt?F.newReceipt.url:F.receiptUrl);if(!u)return;$("#viewimg").src=u;$("#viewer").hidden=false},
   closeviewer(){$("#viewer").hidden=true;$("#viewimg").removeAttribute("src")},
   import(){openSheet("import")},pickfile(){$("#file").click()},
+  account(){openSheet("acct",{mode:"in"})},
+  acmode(d){ui.sheet.mode=d.m;ui.sheet.msg="";drawSheet()},
+  google(){authDo(()=>SYNC.fb.google())},
+  emailin(){const e=($("#ac-email")||{}).value||"",pw=($("#ac-pw")||{}).value||"",nm=(($("#ac-name")||{}).value||"").trim();
+    if(!/^\S+@\S+\.\S+$/.test(e))return err("Enter your email address.");if(pw.length<6)return err("Use a password of at least 6 characters.");
+    if(ui.sheet.mode==="up"&&!nm)return err("Enter your name, so trip mates know who you are.");
+    authDo(()=>ui.sheet.mode==="up"?SYNC.fb.signUp(e,pw,nm):SYNC.fb.signIn(e,pw))},
+  resetpw(){const e=($("#ac-email")||{}).value||"";if(!/^\S+@\S+\.\S+$/.test(e))return err("Enter your email address first.");
+    SYNC.fb.reset(e).then(()=>err("A reset link is on its way to "+e+". Check your inbox."),x=>err(authMsg(x)))},
+  signout(){ui.sheet.confirm=true;drawSheet()},
+  "signout-yes"(){signOutNow()},
   fy(d){ui.fy=Math.min(0,(ui.fy||0)+ +d.d);render()},
   ctype(d){F.ctype=d.c;drawSheet()},cmode(d){F.countMode=d.m;drawSheet()},
   upstmt(){$("#sfile").click()},addone(){closeSheet();newF(curBook());openSheet("tx");setTimeout(()=>{const i=$("#f-amount");i&&i.focus()},80)},
@@ -953,12 +977,130 @@ function stackBars(c,labels,a,bb,still){const w=c.clientWidth,h=c.clientHeight;i
     if(k<1&&c.isConnected)requestAnimationFrame(frame)}
   requestAnimationFrame(frame)}
 
+/* ---------- account and sync (Firebase) ---------- */
+const FBV="10.12.2",FBS=["app","auth","firestore"].map(n=>`https://cdn.jsdelivr.net/npm/firebase@${FBV}/firebase-${n}-compat.js`);
+const SYNC={cfg:null,fb:null,user:null,state:"off",msg:"",ready:false,shadow:{books:{},tx:{}},meta:{},unsubB:null,unsubT:{},txSeen:{},timer:null,join:null,openAfter:null};
+async function fbAdapter(cfg){if(window.__FBMOCK__)return window.__FBMOCK__(cfg);
+  for(const u of FBS)await loadScript(u);
+  if(!firebase.apps.length)firebase.initializeApp(cfg);const auth=firebase.auth(),db=firebase.firestore(),FV=firebase.firestore.FieldValue,ts=()=>FV.serverTimestamp();
+  try{await db.enablePersistence({synchronizeTabs:true})}catch(e){}
+  const bref=id=>db.collection("books").doc(id),me=u=>u?{uid:u.uid,name:u.displayName||(u.email||"").split("@")[0]||"You",email:u.email||""}:null;
+  auth.getRedirectResult().catch(()=>{});
+  return{onAuth:cb=>auth.onAuthStateChanged(u=>cb(me(u))),
+    google:async()=>{const pr=new firebase.auth.GoogleAuthProvider();try{await auth.signInWithPopup(pr)}catch(e){if(/popup|operation-not-supported|web-storage/.test(e.code||""))return auth.signInWithRedirect(pr);throw e}},
+    signIn:(e,p)=>auth.signInWithEmailAndPassword(e,p),
+    signUp:async(e,p,n)=>{const r=await auth.createUserWithEmailAndPassword(e,p);await r.user.updateProfile({displayName:n});SYNC.user=me(auth.currentUser);return r},
+    reset:e=>auth.sendPasswordResetEmail(e),signOut:()=>auth.signOut(),
+    watchBooks:(uid,cb,er)=>db.collection("books").where("members","array-contains",uid).onSnapshot(s=>cb(s.docs.map(d=>({id:d.id,data:d.data()})),s.metadata.fromCache),er),
+    watchTx:(bid,cb,er)=>bref(bid).collection("tx").onSnapshot(s=>cb(s.docChanges().map(c=>({type:c.type,id:c.doc.id,data:c.doc.data()})),s.metadata.fromCache),er),
+    createBook:(id,uid,name,data)=>bref(id).set({owner:uid,members:[uid],names:{[uid]:name},data,updatedAt:ts()}),
+    updateBook:(id,data)=>bref(id).update({data,updatedAt:ts()}),
+    deleteBook:id=>bref(id).delete(),
+    setTx:(bid,id,data)=>bref(bid).collection("tx").doc(id).set(Object.assign({},data,{updatedAt:ts()})),
+    setInvite:(id,code)=>bref(id).update({invite:code,updatedAt:ts()}),
+    join:(id,uid,name,code)=>bref(id).update({members:FV.arrayUnion(uid),joinWith:code,["names."+uid]:name}),
+    leave:(id,uid)=>bref(id).update({members:FV.arrayRemove(uid)}),
+    flushed:()=>db.waitForPendingWrites()}}
+const shKey=uid=>"khoroch.sync."+uid;
+function loadShadow(uid){try{const d=JSON.parse(localStorage.getItem(shKey(uid))||"null");if(d&&d.books&&d.tx)return d}catch(e){}return{books:{},tx:{}}}
+function saveShadow(){if(!SYNC.user)return;try{localStorage.setItem(shKey(SYNC.user.uid),JSON.stringify(SYNC.shadow))}catch(e){}}
+const strip=(o,keys)=>{const c=JSON.parse(JSON.stringify(o,(k,v)=>k==="_v"?undefined:v));keys.forEach(k=>delete c[k]);return c};
+const bookData=b=>strip(b,["cloud","sample"]),txData=t=>strip(t,["updatedAt","deleted"]);
+function syncBar(){if(!SYNC.cfg)return"";
+  if(!SYNC.user)return `<button class="syncbar" data-a="account">${ico(I.cloud)}<b>Sync and share</b><span>Sign in to use your khatas on all your devices</span>${ico(I.right).replace('class="ic"','class="ic go"')}</button>`;
+  const st={syncing:'<i class="dot"></i>Syncing…',synced:'<i class="dot on"></i>All changes synced',offline:'<i class="dot"></i>Offline. Changes sync when you\'re back online.',error:'<i class="dot warn"></i>'+esc(SYNC.msg||"Sync stopped. Tap to see why.")}[SYNC.state]||"";
+  return `<button class="syncbar" data-a="account">${ico(I.user)}<b>${esc(SYNC.user.name)}</b><span>${st}</span>${ico(I.right).replace('class="ic"','class="ic go"')}</button>`}
+function setSync(state,msg){SYNC.state=state;SYNC.msg=msg||"";const el=document.querySelector(".syncbar");if(el&&ui.view==="home"){const t=document.createElement("div");t.innerHTML=syncBar();el.replaceWith(t.firstChild)}if(ui.sheet&&ui.sheet.type==="acct")drawSheet()}
+function authMsg(e){const c=String(e&&e.code||"");
+  return /wrong-password|invalid-credential|user-not-found|invalid-login/.test(c)?"That email and password don't match. Check them, or create an account.":/email-already/.test(c)?"There's already an account with this email. Sign in instead.":
+    /weak-password/.test(c)?"Use a stronger password, at least 6 characters.":/invalid-email/.test(c)?"That email address doesn't look right.":/network/.test(c)?"No internet connection. Connect and try again.":
+    /popup-closed|cancelled-popup/.test(c)?"Sign-in was closed before it finished.":/unauthorized-domain/.test(c)?"This web address isn't allowed to sign in yet. Add it under Authentication, Settings, Authorized domains in Firebase.":
+    /too-many/.test(c)?"Too many attempts. Wait a few minutes and try again.":"Couldn't sign in ("+(c||"unknown error")+")."}
+async function authDo(fn){if(!SYNC.fb){err("Sync is still loading. Try again in a moment.");return}
+  const btns=[...document.querySelectorAll("#sheet .btn.primary,#sheet .gbtn")],pb=document.querySelector("#sheet .btn.primary"),label=pb&&pb.textContent;
+  btns.forEach(b=>b.disabled=true);if(pb)pb.textContent="Please wait…";err("");
+  try{await fn()}catch(e){err(authMsg(e))}finally{btns.forEach(b=>{if(b.isConnected)b.disabled=false});if(pb&&pb.isConnected)pb.textContent=label}}
+function acctSheet(){const sh=ui.sheet,busy=sh.busy?" disabled":"";
+  if(!SYNC.cfg)return head("Sync")+`<p style="margin:0">Sync isn't set up for this copy of Khoroch yet. The person who hosts it needs to add a Firebase project. The steps are in the SYNC_SETUP guide in the app's GitHub repository.</p>`;
+  if(SYNC.user){const u=SYNC.user,n=S.books.filter(b=>SYNC.shadow.books[b.id]).length;
+    return head("Account")+`<div class="preview"><div class="r"><span>Name</span><b>${esc(u.name)}</b></div>${u.email?`<div class="r"><span>Email</span><b style="overflow-wrap:anywhere">${esc(u.email)}</b></div>`:""}<div class="r"><span>Synced khatas</span><b class="num">${n}</b></div></div>
+      <div>${syncBar().replace(/^<button class="syncbar"[^>]*>/,'<div class="syncbar" style="cursor:default">').replace(/<\/button>$/,"</div>")}</div>
+      <p class="muted" style="margin:0;font-size:.92rem">Bill photos stay on the phone they were taken on and don't sync.</p>
+      ${sh.confirm?`<div class="confirm">Sign out? Synced khatas will be removed from this device. They stay in your account, and come back when you sign in again.<div class="actions"><button class="btn danger" style="flex:1" data-a="signout-yes">Sign out</button><button class="btn" data-a="noconfirm">Stay signed in</button></div></div>`
+        :`<div class="actions"><button class="btn danger" style="flex:1" data-a="signout">Sign out</button></div>`}`}
+  const up=sh.mode==="up";
+  return head(up?"Create an account":"Sign in")+`${SYNC.join?`<div class="note">Sign in to join the shared trip you were invited to.</div>`:""}
+    <p style="margin:0">Keep your khatas on every device, and share trips with friends who can add expenses too.</p>
+    <button class="gbtn" data-a="google"${busy}><svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>Continue with Google</button>
+    <div class="or">or use email</div>
+    ${up?`<label class="f">Your name<input id="ac-name" autocomplete="name" maxlength="40" placeholder="Arif"></label>`:""}
+    <label class="f">Email<input id="ac-email" type="email" autocomplete="email" inputmode="email"></label>
+    <label class="f">Password<input id="ac-pw" type="password" autocomplete="${up?"new-password":"current-password"}" minlength="6"></label>
+    <div class="err" id="err" role="alert">${esc(sh.msg||"")}</div>
+    <div class="actions"><button class="btn primary" data-a="emailin"${busy}>${sh.busy?"Please wait…":up?"Create account":"Sign in"}</button></div>
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px"><button class="link" data-a="acmode" data-m="${up?"in":"up"}">${up?"I already have an account":"Create an account"}</button>${up?"":'<button class="link" data-a="resetpw">Forgot password?</button>'}</div>`}
+function delText(B){const c=B.cloud,mine=!c||!SYNC.user||c.owner===SYNC.user.uid,shared=c&&c.members&&c.members.length>1;
+  return !mine?`Leave "${esc(B.name)}"? It will be removed from your devices. The others keep it.`:shared?`Delete "${esc(B.name)}" for everyone it's shared with?`:`Delete "${esc(B.name)}" and all its entries${SYNC.user&&c?" from all your devices":" from this device"}?`}
+function syncSoon(){if(!SYNC.user)return;clearTimeout(SYNC.timer);SYNC.timer=setTimeout(push,350)}
+function quietSave(){save.quiet=true;save();save.quiet=false}
+let renderTimer=null;function renderSoon(){clearTimeout(renderTimer);renderTimer=setTimeout(()=>render(),120)}
+function onErr(e){const c=String(e&&e.code||e&&e.message||e);setSync("error",/permission/.test(c)?"Sync was refused. Check the Firestore security rules in the setup guide.":"Sync stopped ("+c+"). Reopen the app to try again.")}
+async function startSync(){const cfg=window.KHOROCH_FIREBASE;if(IN_ARTIFACT||!cfg||!cfg.apiKey||!cfg.projectId)return;SYNC.cfg=cfg;
+  readJoin();addEventListener("hashchange",()=>{if(!readJoin())return;if(SYNC.user)doJoin();else if(SYNC.fb){closeSheet();openSheet("acct",{mode:"in"})}});
+  render();
+  try{SYNC.fb=await fbAdapter(cfg)}catch(e){SYNC.cfg=cfg;setSync("error","Couldn't load sync. Connect to the internet once, then it works offline.");return}
+  SYNC.fb.onAuth(u=>{if(u&&(!SYNC.user||SYNC.user.uid!==u.uid))signedIn(u);else if(!u&&SYNC.user)stopSync();else if(!u&&SYNC.join&&!ui.sheet)openSheet("acct",{mode:"in"});render()})}
+function signedIn(u){stopSync(true);SYNC.user=u;SYNC.shadow=loadShadow(u.uid);SYNC.baseB=new Set(Object.keys(SYNC.shadow.books));SYNC.baseT=new Set(Object.keys(SYNC.shadow.tx));SYNC.seenB=new Set();SYNC.ready=false;SYNC.meta={};SYNC.txSeen={};setSync("syncing");
+  if(ui.sheet&&ui.sheet.type==="acct"){closeSheet();toast("Signed in as "+u.name)}
+  SYNC.unsubB=SYNC.fb.watchBooks(u.uid,onBooks,onErr);if(SYNC.join)doJoin()}
+function stopSync(keepUser){if(SYNC.unsubB)SYNC.unsubB();SYNC.unsubB=null;Object.values(SYNC.unsubT).forEach(f=>f());SYNC.unsubT={};SYNC.ready=false;if(!keepUser){SYNC.user=null;setSync("off")}}
+async function signOutNow(){const ids=new Set(Object.keys(SYNC.shadow.books));saveShadow();
+  S.tx=S.tx.filter(t=>!ids.has(t.bookId));S.books=S.books.filter(b=>!ids.has(b.id));stopSync();quietSave();try{await SYNC.fb.signOut()}catch(e){}closeSheet();ui.view="home";render(true);toast("Signed out")}
+function readJoin(){const m=location.hash.match(/^#join=([\w-]+)\.([\w-]+)$/);if(!m)return false;SYNC.join={bid:m[1],code:m[2]};history.replaceState(null,"",location.pathname+location.search);return true}
+function doJoin(){const j=SYNC.join;SYNC.join=null;if(!j||!SYNC.user)return;
+  SYNC.fb.join(j.bid,SYNC.user.uid,SYNC.user.name,j.code).then(()=>{SYNC.openAfter=j.bid;toast("Joined. Loading the trip…")},()=>toast("This invite link doesn't work any more. Ask for a new one."))}
+function onBooks(list,fromCache){const uid=SYNC.user&&SYNC.user.uid;if(!uid)return;const ids=new Set();
+  list.forEach(({id,data})=>{const d=data.data||{};if(!d.type)return;ids.add(id);if(!fromCache)SYNC.seenB.add(id);SYNC.meta[id]={owner:data.owner,members:data.members||[],names:data.names||{},invite:data.invite||null};
+    const nb=Object.assign({},d,{id,members:d.members||[],cloud:SYNC.meta[id]}),i=S.books.findIndex(b=>b.id===id);if(i>=0)S.books[i]=nb;else S.books.push(nb);
+    SYNC.shadow.books[id]=JSON.stringify(bookData(nb));if(!SYNC.unsubT[id])SYNC.unsubT[id]=SYNC.fb.watchTx(id,(ch,fc)=>onTx(id,ch,fc),onErr)});
+  if(!fromCache)S.books.slice().forEach(b=>{if(!ids.has(b.id)&&SYNC.shadow.books[b.id]&&(SYNC.baseB.has(b.id)||SYNC.seenB.has(b.id))){S.books=S.books.filter(x=>x.id!==b.id);S.tx=S.tx.filter(t=>t.bookId!==b.id);delete SYNC.shadow.books[b.id];
+    if(SYNC.unsubT[b.id]){SYNC.unsubT[b.id]();delete SYNC.unsubT[b.id]}if(ui.bookId===b.id&&ui.view!=="home"){ui.view="home";toast("You no longer have access to "+b.name)}}});
+  if(!fromCache)SYNC.ready=true;quietSave();saveShadow();if(SYNC.ready)push();
+  if(SYNC.openAfter&&ids.has(SYNC.openAfter)){const id=SYNC.openAfter;SYNC.openAfter=null;A.open({id})}else renderSoon()}
+function onTx(bid,changes,fromCache){const seen=SYNC.txSeen[bid]||(SYNC.txSeen[bid]=new Set());
+  changes.forEach(c=>{seen.add(c.id);if(c.type==="removed"||c.data.deleted){S.tx=S.tx.filter(t=>t.id!==c.id);SYNC.shadow.tx[c.id]="-";return}
+    const t=Object.assign({},c.data,{id:c.id,bookId:bid});delete t.updatedAt;delete t.deleted;const i=S.tx.findIndex(x=>x.id===c.id);if(i>=0)S.tx[i]=t;else S.tx.push(t);SYNC.shadow.tx[c.id]=JSON.stringify(txData(t))});
+  if(!fromCache&&!seen.server){seen.server=true;S.tx=S.tx.filter(t=>!(t.bookId===bid&&!seen.has(t.id)&&SYNC.baseT.has(t.id)&&SYNC.shadow.tx[t.id]&&SYNC.shadow.tx[t.id]!=="-"))}
+  quietSave();saveShadow();if(SYNC.ready)syncSoon();renderSoon()}
+function push(){if(!SYNC.user||!SYNC.ready)return;const uid=SYNC.user.uid,fb=SYNC.fb,sh=SYNC.shadow,w=[];
+  S.books.forEach(b=>{if(b.sample)return;const d=bookData(b),j=JSON.stringify(d);
+    if(!sh.books[b.id]){w.push(fb.createBook(b.id,uid,SYNC.user.name,d));b.cloud=SYNC.meta[b.id]={owner:uid,members:[uid],names:{[uid]:SYNC.user.name},invite:null};if(!SYNC.unsubT[b.id])SYNC.unsubT[b.id]=fb.watchTx(b.id,(ch,fc)=>onTx(b.id,ch,fc),onErr)}
+    else if(sh.books[b.id]!==j)w.push(fb.updateBook(b.id,d));sh.books[b.id]=j});
+  const live=new Set(S.books.filter(b=>!b.sample).map(b=>b.id)),have=new Set();
+  S.tx.forEach(t=>{if(!live.has(t.bookId))return;have.add(t.id);const j=JSON.stringify(txData(t));if(sh.tx[t.id]!==j){w.push(fb.setTx(t.bookId,t.id,txData(t)));sh.tx[t.id]=j}});
+  Object.keys(sh.tx).forEach(id=>{const v=sh.tx[id];if(v==="-"||have.has(id))return;let bid=null;try{bid=JSON.parse(v).bookId}catch(e){}
+    if(bid&&live.has(bid)){w.push(fb.setTx(bid,id,{deleted:true,bookId:bid}));sh.tx[id]="-"}else if(!bid||!sh.books[bid])delete sh.tx[id]});
+  Object.keys(sh.books).forEach(id=>{if(live.has(id))return;const m=SYNC.meta[id];w.push(m&&m.owner&&m.owner!==uid?fb.leave(id,uid):fb.deleteBook(id));delete sh.books[id];delete SYNC.meta[id];
+    if(SYNC.unsubT[id]){SYNC.unsubT[id]();delete SYNC.unsubT[id]}});
+  saveShadow();
+  if(w.length){setSync(navigator.onLine===false?"offline":"syncing");Promise.all(w).then(()=>fb.flushed&&fb.flushed()).then(()=>setSync("synced"),onErr)}else if(SYNC.state!=="error")setSync(navigator.onLine===false?"offline":"synced")}
+addEventListener("online",()=>{if(SYNC.user)push()});addEventListener("offline",()=>{if(SYNC.user)setSync("offline")});
+async function inviteFlow(){const b=curBook();
+  if(!SYNC.user){closeSheet();openSheet("acct",{mode:"in"});return}
+  if(!SYNC.ready||!SYNC.shadow.books[b.id]){push();ui.sheet.out={label:"Invite link",text:"Saving this khata to your account first. Try again in a moment."};drawSheet();return}
+  const m=SYNC.meta[b.id]||{};if(m.owner&&m.owner!==SYNC.user.uid){const link=m.invite?location.origin+location.pathname+"#join="+b.id+"."+m.invite:"";
+    ui.sheet.out=link?{label:"Invite link",text:link,shareText:`Join "${b.name}" on Khoroch to add expenses: ${link}`}:{label:"Invite link",text:"Only the person who started this khata can invite people. Ask them for the link."};drawSheet();return}
+  let code=m.invite;if(!code){code=(uid()+uid()).replace(/[^a-z0-9]/g,"").slice(0,16);try{await SYNC.fb.setInvite(b.id,code);m.invite=code}catch(e){ui.sheet.out={label:"Invite link",text:"Couldn't create the link. Check your internet connection and try again."};drawSheet();return}}
+  const link=location.origin+location.pathname+"#join="+b.id+"."+code;
+  if(ui.sheet)ui.sheet.out={label:"Invite link",text:link,shareText:`Join "${b.name}" on Khoroch to add expenses: ${link}`};drawSheet()}
+
 /* ---------- start ---------- */
 S=load();if(!S){S=window.__SEED__?JSON.parse(JSON.stringify(window.__SEED__)):demo();const dc=demoCard();S.books.push(dc.book);S.tx.push(...dc.tx)}
 render(true);
 if(!RM)requestAnimationFrame(loop);
 let lastW=innerWidth;addEventListener("resize",()=>{if(innerWidth===lastW)return;lastW=innerWidth;drawCharts(true);drawGlobe(performance.now())});
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{G.col=null;render()});
+startSync();
 if("serviceWorker" in navigator&&!IN_ARTIFACT&&(location.protocol==="https:"||location.hostname==="localhost"))navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
 </body></html>

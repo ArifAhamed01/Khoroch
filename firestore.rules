@@ -1,0 +1,43 @@
+rules_version = '2';
+// Khoroch: each khata is a document in /books. Only accounts listed in its
+// `members` can read or change it. The owner can invite people with a secret
+// link; anyone holding the link can add themselves, and nothing else.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+
+    match /books/{bookId} {
+      function isMember() { return signedIn() && request.auth.uid in resource.data.members; }
+      function isOwner()  { return signedIn() && request.auth.uid == resource.data.owner; }
+      function onlyChanges(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
+
+      allow read: if isMember();
+
+      allow create: if signedIn()
+        && request.resource.data.owner == request.auth.uid
+        && request.resource.data.members == [request.auth.uid];
+
+      allow update: if
+        // the owner can change anything except who owns it
+        (isOwner() && request.resource.data.owner == resource.data.owner)
+        // other members can edit the contents, but not membership or the invite
+        || (isMember() && onlyChanges(['data', 'updatedAt', 'names', 'joinWith']))
+        // a member can leave by removing only themselves
+        || (isMember() && onlyChanges(['members'])
+            && request.resource.data.members.toSet() == resource.data.members.toSet().difference([request.auth.uid].toSet()))
+        // someone with a valid invite code can add only themselves
+        || (signedIn() && !(request.auth.uid in resource.data.members)
+            && resource.data.get('invite', null) != null
+            && request.resource.data.joinWith == resource.data.invite
+            && request.resource.data.members == resource.data.members.concat([request.auth.uid])
+            && onlyChanges(['members', 'joinWith', 'names']));
+
+      allow delete: if isOwner();
+
+      match /tx/{txId} {
+        allow read, write: if signedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/books/$(bookId)).data.members;
+      }
+    }
+  }
+}
