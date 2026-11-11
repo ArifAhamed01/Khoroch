@@ -25,11 +25,18 @@ Khoroch (খরচ, "expense" in Bangla) is a lightweight expense app that insta
 - Set an optional **monthly budget** to see what's left and how much you can spend per day.
 - Browse month by month, with daily totals and a category breakdown.
 
+### Scan bills
+- **Take a photo** of a bill or **upload** an image or PDF invoice when adding an expense.
+- Khoroch reads the **total, date and shop name** and fills them in for you to check. If it picks the wrong total, tap the right one from the amounts it found.
+- The bill photo is saved with the entry. Tap the thumbnail to view it full screen.
+- Reading runs on your phone with [Tesseract.js](https://github.com/naptha/tesseract.js) (photos) and [PDF.js](https://mozilla.github.io/pdf.js/) (PDFs). The reader downloads once, about 5 MB, the first time you scan. After that it works offline.
+- Works best on printed bills in English, held flat and in good light. Handwritten bills are hard to read.
+
 ### Sharing and export
 - **Summary message:** totals and who pays whom, formatted for WhatsApp.
 - **Trip code:** a compact code you can paste in a chat. A friend imports it into their own Khoroch with the full trip included.
 - **CSV export** for Excel or Google Sheets.
-- **Backup** of every book as a single code or file.
+- **Backup** of every book as a single code or file. Bill photos stay on the phone and aren't included.
 
 ### Design
 - A 3D globe of travel routes that you can spin by dragging, cards that tilt, 3D bar charts and a coin flip when you save.
@@ -80,8 +87,8 @@ Once it's hosted, [PWABuilder](https://www.pwabuilder.com) can package the URL a
 
 ## Privacy
 
-Your data is saved in your browser's local storage on your own device. Nothing is sent anywhere. Clearing the browser's site data deletes it, so use **Share → Back up everything** now and then.
+Your data and bill photos are saved in your browser's storage on your own device. Bills are read on the phone itself, and nothing is uploaded anywhere. Clearing the browser's site data deletes it, so use **Share → Back up everything** now and then.
 
 ## Built with
 
-Vanilla HTML, CSS and JavaScript, with no frameworks or dependencies. The 3D effects are drawn with Canvas 2D and CSS transforms. The fonts are [Bricolage Grotesque](https://fonts.google.com/specimen/Bricolage+Grotesque) and [Hind Siliguri](https://fonts.google.com/specimen/Hind+Siliguri) from Google Fonts, cached for offline use after the first load.
+Vanilla HTML, CSS and JavaScript, with no build step. Bill scanning loads Tesseract.js and PDF.js on first use. The 3D effects are drawn with Canvas 2D and CSS transforms. The fonts are [Bricolage Grotesque](https://fonts.google.com/specimen/Bricolage+Grotesque) and [Hind Siliguri](https://fonts.google.com/specimen/Hind+Siliguri) from Google Fonts, cached for offline use after the first load.

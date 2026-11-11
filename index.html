@@ -153,6 +153,24 @@ textarea{min-height:120px;resize:vertical;font-size:14px;font-family:ui-monospac
 .coin{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 130px);width:44px;height:44px;margin-left:-22px;z-index:41;border-radius:50%;pointer-events:none;
   background:radial-gradient(circle at 35% 30%,var(--accent-2),var(--accent) 60%,var(--accent-3));box-shadow:inset 0 0 0 4px var(--accent-2),0 6px 14px rgba(0,0,0,.3)}
 
+.scan{display:flex;flex-direction:column;gap:10px;background:var(--sunk);border-radius:16px;padding:12px}
+.scan-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.scan-btns button{display:flex;align-items:center;justify-content:center;gap:8px;border:1.5px dashed var(--line);background:var(--surface);color:var(--fg);border-radius:12px;padding:10px;min-height:52px;font-weight:600;font-size:.95rem}
+.rcpt{display:grid;grid-template-columns:64px 1fr auto;gap:12px;align-items:center}
+.thumb{width:64px;height:64px;border-radius:10px;overflow:hidden;border:0;padding:0;background:var(--surface);display:grid;place-items:center;color:var(--muted)}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.found{display:flex;flex-direction:column;gap:6px;font-size:.95rem;min-width:0;overflow-wrap:anywhere}
+.prog{height:6px;border-radius:3px;background:var(--surface);overflow:hidden}
+.prog i{display:block;height:100%;background:var(--accent);border-radius:3px;transition:width .25s}
+.alts{display:flex;flex-wrap:wrap;gap:6px}
+.alts button{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:6px 14px;font-size:.92rem;font-weight:600}
+details summary{padding:6px 0;cursor:pointer}
+pre.ocr{white-space:pre-wrap;word-break:break-word;font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;max-height:220px;overflow:auto;background:var(--surface);color:var(--fg);padding:10px;border-radius:10px;margin:6px 0 0}
+.filled{border-color:var(--accent)!important;background:color-mix(in srgb,var(--accent) 12%,var(--bg))!important}
+.viewer{position:fixed;inset:0;z-index:50;background:#000;display:flex;flex-direction:column;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+.viewer .x{align-self:flex-end;color:#fff;margin:6px}
+.viewer img{flex:1;min-height:0;width:100%;object-fit:contain}
+.clip{width:14px;height:14px;vertical-align:-2px}
 @media (prefers-reduced-motion: no-preference){
   .enter{animation:enter .38s cubic-bezier(.2,.8,.2,1)}
   @keyframes enter{from{opacity:.4;transform:perspective(900px) translateZ(-70px) rotateX(5deg)}to{opacity:1;transform:none}}
@@ -170,6 +188,9 @@ textarea{min-height:120px;resize:vertical;font-size:14px;font-family:ui-monospac
 <div class="scrim" id="scrim" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
 <div class="toast" id="toast" role="status" hidden></div>
 <input type="file" id="file" accept=".json,.txt,application/json,text/plain" hidden>
+<input type="file" id="cam" accept="image/*" capture="environment" hidden>
+<input type="file" id="rfile" accept="image/*,application/pdf,.pdf" hidden>
+<div class="viewer" id="viewer" hidden><button class="x" data-a="closeviewer" aria-label="Close">×</button><img id="viewimg" alt="Bill"></div>
 
 <script>
 "use strict";
@@ -189,7 +210,8 @@ const dayLabel=d=>{const x=new Date(d+"T00:00:00");return isNaN(x)?"No date":x.t
 const monthLabel=m=>new Date(m+"-01T00:00:00").toLocaleDateString("en-GB",{month:"long",year:"numeric"});
 const ico=d=>`<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
 const I={back:"M15 5l-7 7 7 7",share:"M12 15V4M8 8l4-4 4 4M5 13v6h14v-6",edit:"M4 20h4L19 9l-4-4L4 16z",plus:"M12 5v14M5 12h14",left:"M14 6l-6 6 6 6",right:"M10 6l6 6-6 6",
-  copy:"M9 9h10v11H9zM5 15V4h10",file:"M7 3h7l4 4v14H7zM14 3v4h4",text:"M5 6h14M5 11h14M5 16h9",table:"M4 5h16v14H4zM4 10h16M10 5v14",inbox:"M12 4v10M8 10l4 4 4-4M4 16v4h16v-4"};
+  copy:"M9 9h10v11H9zM5 15V4h10",file:"M7 3h7l4 4v14H7zM14 3v4h4",text:"M5 6h14M5 11h14M5 16h9",table:"M4 5h16v14H4zM4 10h16M10 5v14",inbox:"M12 4v10M8 10l4 4 4-4M4 16v4h16v-4",cam:"M4 8h3l2-3h6l2 3h3v11H4zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z",up:"M12 16V5M8 9l4-4 4 4M4 15v5h16v-5"};
+const CLIP=` · <svg class="ic clip" viewBox="0 0 24 24" role="img" aria-label="Bill attached"><path d="M20 11.5l-8 8a5 5 0 0 1-7-7l8.5-8.5a3.5 3.5 0 0 1 5 5L10 17.5a2 2 0 0 1-3-3L14.5 7"/></svg>`;
 const CATS={food:["Food",22,"M7 3v7a2 2 0 0 0 4 0V3M9 12v9M17 3c-2.5 2-2.5 8 0 10v8"],
   transport:["Transport",215,"M4 16v-5l2-5h12l2 5v5M4 16h16M6.5 16v2.5M17.5 16v2.5M4 11h16"],
   stay:["Accommodation",265,"M3 19V6M3 13h18v6M7 13v-3h7a3 3 0 0 1 3 3"],
@@ -291,7 +313,7 @@ function trip(b){const l=txOf(b),s=summary(b),x=transfers(s.net),exp=l.filter(t=
       const pk=Object.keys(t.payers||{}),sh=sharesOf(t,b),among=Object.keys(sh).filter(k=>sh[k]>0);
       const who=pk.length>1?pk.map(k=>esc(mname(b,k))+" "+fmt(t.payers[k],b.cur)).join(" + "):esc(mname(b,pk[0]));
       const how=among.length===1?"only "+esc(mname(b,among[0])):(among.length===b.members.length?"everyone":among.map(k=>esc(mname(b,k))).join(", "))+((t.split||{}).mode==="heads"?", per person":(t.split||{}).mode==="equal"?", equal":", custom");
-      return `<button class="tx" data-a="edittx" data-id="${esc(t.id)}">${catIco(t.cat)}<span class="d">${esc(t.desc)}</span><span class="a num">${fmt(t.amount,b.cur)}</span><span class="s">Paid by ${who} · for ${how}</span></button>`})
+      return `<button class="tx" data-a="edittx" data-id="${esc(t.id)}">${catIco(t.cat)}<span class="d">${esc(t.desc)}</span><span class="a num">${fmt(t.amount,b.cur)}</span><span class="s">Paid by ${who} · for ${how}${t.receipt?CLIP:""}</span></button>`})
     :`<div class="empty">${l.length?"Nothing in this filter.":"No expenses yet. Tap <b>Add expense</b> to log the first one."}</div>`}`}
   return `${topbar(b)}
   <div class="stats"><div class="stat"><b class="num">${fmt(s.total,b.cur)}</b><span>Total spent</span></div><div class="stat"><b class="num">${fmt(h?s.total/h:0,b.cur)}</b><span>Per person (${h})</span></div><div class="stat"><b class="num">${exp.length}</b><span>Expenses</span></div></div>
@@ -310,7 +332,7 @@ function ledger(b){const m=ui.month,l=txOf(b).filter(t=>(t.date||"").startsWith(
   <section><div class="eyebrow">Spent ${isNow?"this month":"in "+monthLabel(m)}</div><div class="big num">${fmt(tot,b.cur)}</div>${budget}
     <div class="muted num" style="font-size:.86rem">${l.length} ${l.length===1?"entry":"entries"}${l.length?" · "+fmt(tot/dayN,b.cur)+" a day on average":""}</div></section>
   ${isoCard("week",isNow?"Last 7 days":"Last week of the month",ks.map(k=>per[k]||0),ks.map(k=>new Date(k+"T00:00:00").toLocaleDateString("en-GB",{weekday:"short"})))}
-  ${l.length?`<section><h2>Where it went</h2>${catBlock(l,b.cur)}</section><section><h2>Entries</h2>${dayBlocks(l,b,t=>`<button class="tx" data-a="edittx" data-id="${esc(t.id)}">${catIco(t.cat)}<span class="d">${esc(t.desc)}</span><span class="a num">${fmt(t.amount,b.cur)}</span><span class="s">${catName(t.cat)}${t.note?" · "+esc(t.note):""}</span></button>`)}</section>`
+  ${l.length?`<section><h2>Where it went</h2>${catBlock(l,b.cur)}</section><section><h2>Entries</h2>${dayBlocks(l,b,t=>`<button class="tx" data-a="edittx" data-id="${esc(t.id)}">${catIco(t.cat)}<span class="d">${esc(t.desc)}</span><span class="a num">${fmt(t.amount,b.cur)}</span><span class="s">${catName(t.cat)}${t.note?" · "+esc(t.note):""}${t.receipt?CLIP:""}</span></button>`)}</section>`
     :`<div class="empty">Nothing logged in ${monthLabel(m)}. Tap <b>Add expense</b> to start.</div>`}
   <button class="fab" data-a="addtx">+ Add expense</button>`}
 
@@ -324,14 +346,14 @@ function render(nav){const b=curBook();if(ui.view!=="home"&&!b)ui.view="home";ui
 const pick=(items,sel,a)=>`<div class="pick">${items.map(m=>`<button type="button" data-a="${a}" data-id="${esc(m.id)}" aria-pressed="${Array.isArray(sel)?sel.includes(m.id):sel===m.id}">${esc(m.name)}</button>`).join("")}</div>`;
 const head=t=>`<div class="sheet-head"><h2>${t}</h2><button class="x" data-a="close" aria-label="Close">×</button></div>`;
 function txSheet(){const b=curBook(),trip=b.type==="trip",groups=b.members.some(m=>m.heads>1);
-  const common=`<label class="f">Amount (${esc(b.cur)})<input class="amount num" id="f-amount" data-f="amount" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${esc(F.amount)}"></label>`;
+  const common=`<label class="f">Amount (${esc(b.cur)})<input class="amount num${F.filled&&F.filled.amount?" filled":""}" id="f-amount" data-f="amount" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${esc(F.amount)}"></label>`;
   let h=head(F.id?"Edit entry":F.kind==="settle"?"Record a payback":"Add expense");
   if(trip&&!F.id)h+=`<div class="seg"><button data-a="kind" data-k="expense" aria-pressed="${F.kind==="expense"}">Expense</button><button data-a="kind" data-k="settle" aria-pressed="${F.kind==="settle"}">Paid back</button></div>`;
   if(F.kind==="settle"){h+=common+`<div class="f">Who paid it back?${pick(b.members,F.from,"from")}</div><div class="f">To whom?${pick(b.members,F.to,"to")}</div>
     <div class="grid2"><label class="f">Date<input id="f-date" data-f="date" type="date" value="${esc(F.date)}"></label><label class="f">Note<input id="f-note" data-f="note" placeholder="bKash, cash" maxlength="120" value="${esc(F.note)}"></label></div>`}
-  else{h+=common+`<label class="f">What was it for?<input id="f-desc" data-f="desc" placeholder="Lunch, CNG, boat fare" maxlength="120" value="${esc(F.desc)}"></label>
+  else{h+=scanBlock()+common+`<label class="f">What was it for?<input class="${F.filled&&F.filled.desc?"filled":""}" id="f-desc" data-f="desc" placeholder="Lunch, CNG, boat fare" maxlength="120" value="${esc(F.desc)}"></label>
     <div class="f">Category<div class="chips">${Object.keys(CATS).map(c=>`<button type="button" class="chip" data-a="cat" data-c="${c}" aria-pressed="${F.cat===c}">${catName(c)}</button>`).join("")}</div></div>
-    <label class="f">Date<input id="f-date" data-f="date" type="date" value="${esc(F.date)}"></label>`;
+    <label class="f">Date<input class="${F.filled&&F.filled.date?"filled":""}" id="f-date" data-f="date" type="date" value="${esc(F.date)}"></label>`;
     if(trip){
       h+=`<div class="f">Who paid?${F.multi?b.members.map(m=>`<label class="rowin"><span>${esc(m.name)}</span><input class="num" id="f-pay-${esc(m.id)}" data-f="pay.${esc(m.id)}" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${esc(F.pay[m.id]||"")}"></label>`).join(""):pick(b.members,F.payer,"payer")}
         <button type="button" class="link" data-a="multi" style="align-self:flex-start">${F.multi?"Only one person paid":"More than one person paid"}</button></div>
@@ -375,13 +397,13 @@ function shareSheet(){const b=curBook(),o=ui.sheet.out;
   return head("Share and export")+(b.type==="trip"?opt("summary",I.text,"Summary message","Totals and who pays whom, ready for WhatsApp"):opt("summary",I.text,"Month summary","This month's total and categories as a message"))
     +opt("code",I.copy,b.type==="trip"?"Trip code":"Ledger code","Paste it in a chat. Anyone with Khoroch can import the full book.")
     +opt("csv",I.table,"Spreadsheet (CSV)","Every entry, for Excel or Google Sheets")
-    +opt("all",I.file,"Back up everything","All your books in one code or file")}
+    +opt("all",I.file,"Back up everything","All your books in one code or file")+'<p class="muted" style="margin:0;font-size:.88rem">Bill photos stay on this phone. They are not included in codes, backups or CSV files.</p>'}
 function importSheet(){return head("Import")+`<p class="muted" style="margin:0">Paste a Khoroch code, or pick a backup file. Importing a book you already have replaces your copy.</p>
   <textarea id="imp" placeholder="KH1Z:…" aria-label="Khoroch code"></textarea><div class="err" id="err" role="alert"></div>
   <div class="actions"><button class="btn" data-a="pickfile">Choose file</button><button class="btn primary" data-a="doimport">Import</button></div>`}
 function openSheet(type,extra){ui.sheet=Object.assign({type},extra||{});drawSheet();$("#scrim").hidden=false}
 function drawSheet(){const s=$("#sheet"),top=s.scrollTop;s.innerHTML={tx:txSheet,book:bookSheet,share:shareSheet,import:importSheet}[ui.sheet.type]();s.scrollTop=top;preview()}
-function closeSheet(){ui.sheet=null;F=null;B=null;$("#scrim").hidden=true;$("#sheet").innerHTML=""}
+function closeSheet(){if(F&&F.newReceipt&&!F.newReceipt.kept)URL.revokeObjectURL(F.newReceipt.url);OCR.cb=null;ui.sheet=null;F=null;B=null;$("#scrim").hidden=true;$("#sheet").innerHTML=""}
 function toast(msg,coin){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,1900);
   if(coin){const c=document.createElement("div");c.className="coin";document.body.appendChild(c);setTimeout(()=>c.remove(),1000)}}
 const err=m=>{const e=$("#err");if(e)e.textContent=m};
@@ -405,7 +427,7 @@ function clean(d){if(!d||!Array.isArray(d.books))throw new Error("shape");
     members:(Array.isArray(b.members)?b.members:[]).filter(m=>m&&m.id).map(m=>({id:sid(m.id),name:String(m.name||"").slice(0,60),heads:Math.max(1,Math.min(99,Math.round(+m.heads||1)))}))}));
   const ids=new Set(books.map(b=>b.id));
   const tx=(Array.isArray(d.tx)?d.tx:[]).filter(t=>t&&ids.has(sid(t.bookId))&&isFinite(+t.amount)).map(t=>{const o={id:sid(t.id||uid()),bookId:sid(t.bookId),kind:t.kind==="settle"?"settle":"expense",amount:Math.abs(+t.amount),
-      desc:String(t.desc||"").slice(0,160),cat:CATS[t.cat]?t.cat:"other",date:isDate(t.date)?t.date:today(),note:String(t.note||"").slice(0,200),created:+t.created||Date.now()};
+      desc:String(t.desc||"").slice(0,160),cat:CATS[t.cat]?t.cat:"other",date:isDate(t.date)?t.date:today(),note:String(t.note||"").slice(0,200),created:+t.created||Date.now()};if(typeof t.receipt==="string"&&t.receipt)o.receipt=sid(t.receipt);
     if(o.kind==="settle"){o.from=sid(t.from||"");o.to=sid(t.to||"")}
     else if(t.payers){o.payers=numMap(t.payers);const sp=t.split||{};o.split={mode:["heads","equal","custom"].includes(sp.mode)?sp.mode:"heads"};
       if(o.split.mode==="custom")o.split.custom=numMap(sp.custom);else o.split.among=(Array.isArray(sp.among)?sp.among:[]).map(sid)}
@@ -430,7 +452,7 @@ const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").sl
 
 /* ---------- actions ---------- */
 function newF(b){const ids=b.members.map(m=>m.id);F={id:null,kind:"expense",amount:"",desc:"",cat:"food",date:today(),note:"",payer:ids[0],multi:false,pay:{},
-  mode:b.members.some(m=>m.heads>1)?"heads":"equal",among:ids.slice(),custom:{},from:ids[1]||ids[0],to:ids[0]};
+  mode:b.members.some(m=>m.heads>1)?"heads":"equal",among:ids.slice(),custom:{},from:ids[1]||ids[0],to:ids[0],receipt:null,receiptUrl:"",newReceipt:null,removeReceipt:false,scan:null,filled:{},catTouched:false,scanTok:0};
   if(b.type==="trip"&&b.start&&today()<b.start)F.date=b.start}
 const A={
   open(d){ui.view="book";ui.bookId=d.id;ui.tab="overview";ui.filter="All";ui.month=today().slice(0,7);history.pushState({k:"book"},"");render(true)},
@@ -441,17 +463,18 @@ const A={
   close(){closeSheet()},confirm(){ui.sheet.confirm=true;drawSheet();$("#sheet").scrollTop=1e5},noconfirm(){ui.sheet.confirm=false;drawSheet()},
   addtx(){newF(curBook());if(curBook().type==="personal"&&ui.month!==today().slice(0,7))F.date=ui.month+"-01";openSheet("tx");setTimeout(()=>{const i=$("#f-amount");i&&i.focus()},80)},
   edittx(d){const b=curBook(),t=S.tx.find(x=>x.id===d.id);if(!t)return;newF(b);Object.assign(F,{id:t.id,kind:t.kind||"expense",amount:String(t.amount),desc:t.desc||"",cat:t.cat||"other",date:t.date,note:t.note||"",created:t.created});
+    F.catTouched=true;if(t.receipt){const rid=t.receipt;F.receipt=rid;rurl(rid).then(u=>{if(F&&F.receipt===rid){F.receiptUrl=u||"";if(!u)F.scan={state:"error",msg:"This bill photo isn't on this phone."};drawSheet()}})}
     if(t.kind==="settle"){F.from=t.from;F.to=t.to}
     else if(b.type==="trip"){const pk=Object.keys(t.payers||{});F.multi=pk.length>1;F.payer=pk[0]||F.payer;pk.forEach(k=>F.pay[k]=String(t.payers[k]));const sp=t.split||{};F.mode=sp.mode||"heads";
       if(F.mode==="equal"&&!b.members.some(m=>m.heads>1))F.mode="equal";if(sp.among&&sp.among.length)F.among=sp.among.slice();if(sp.custom)for(const k in sp.custom)F.custom[k]=String(Math.round(sp.custom[k]*100)/100)}
     openSheet("tx")},
   paid(d){const b=curBook();newF(b);Object.assign(F,{kind:"settle",from:d.from,to:d.to,amount:d.amt});openSheet("tx")},
   kind(d){F.kind=d.k;if(F.from===F.to){const o=curBook().members.find(m=>m.id!==F.to);if(o)F.from=o.id}drawSheet()},
-  cat(d){F.cat=d.c;drawSheet()},payer(d){F.payer=d.id;drawSheet()},from(d){F.from=d.id;drawSheet()},to(d){F.to=d.id;drawSheet()},
+  cat(d){F.cat=d.c;F.catTouched=true;drawSheet()},payer(d){F.payer=d.id;drawSheet()},from(d){F.from=d.id;drawSheet()},to(d){F.to=d.id;drawSheet()},
   multi(){F.multi=!F.multi;if(F.multi&&!Object.keys(F.pay).length&&F.amount)F.pay[F.payer]=F.amount;drawSheet()},
   mode(d){if(d.m==="custom"&&F.mode!=="custom"){const sh=fShares();curBook().members.forEach(m=>{if(!F.custom[m.id]&&sh[m.id])F.custom[m.id]=String(Math.round(sh[m.id]*100)/100)})}F.mode=d.m;drawSheet()},
   among(d){const ids=curBook().members.map(m=>m.id);F.among=F.among.includes(d.id)?F.among.filter(i=>i!==d.id):ids.filter(i=>i===d.id||F.among.includes(i));drawSheet()},
-  savetx(){const b=curBook(),amt=Math.round((parseFloat(F.amount)||0)*100)/100;if(!(amt>0))return err("Enter the amount.");
+  async savetx(){if(F.saving)return;const b=curBook(),amt=Math.round((parseFloat(F.amount)||0)*100)/100;if(!(amt>0))return err("Enter the amount.");
     const t={id:F.id||uid(),bookId:b.id,kind:F.kind,amount:amt,date:isDate(F.date)?F.date:today(),note:F.note.trim(),created:F.created||Date.now()};
     if(F.kind==="settle"){if(F.from===F.to)return err("Pick two different members.");Object.assign(t,{from:F.from,to:F.to,desc:"",cat:"other"})}
     else{t.desc=F.desc.trim()||catName(F.cat);t.cat=F.cat;
@@ -460,8 +483,11 @@ const A={
         else t.payers={[F.payer]:amt};
         if(F.mode==="custom"){const sh=fShares(),sum=Object.values(sh).reduce((a,c)=>a+c,0);if(Math.abs(sum-amt)>.5)return err(`The shares add up to ${fmt(sum,b.cur)}, but the expense is ${fmt(amt,b.cur)}.`);t.split={mode:"custom",custom:sh}}
         else{if(!F.among.length)return err("Pick at least one member this was for.");t.split={mode:F.mode,among:F.among.slice()}}}}
+    if(F.kind==="expense"&&F.newReceipt){const rid="r"+uid();F.saving=true;try{await IDB.put(rid,F.newReceipt.blob);t.receipt=rid;RURL[rid]=F.newReceipt.url;F.newReceipt.kept=true;if(F.receipt)IDB.del(F.receipt).catch(()=>{})}catch(e){F.saving=false;return err("Couldn't save the bill photo on this phone. Remove it to save the entry without it.")}F.saving=false}
+    else if(F.receipt&&(F.removeReceipt||F.kind!=="expense"))IDB.del(F.receipt).catch(()=>{});
+    else if(F.receipt)t.receipt=F.receipt;
     const i=S.tx.findIndex(x=>x.id===t.id);if(i>=0)S.tx[i]=t;else S.tx.push(t);save();const was=!!F.id;closeSheet();render();toast(was?"Updated":"Saved",!was)},
-  "deltx-yes"(){S.tx=S.tx.filter(t=>t.id!==F.id);save();closeSheet();render();toast("Deleted")},
+  "deltx-yes"(){if(F.receipt)IDB.del(F.receipt).catch(()=>{});S.tx=S.tx.filter(t=>t.id!==F.id);save();closeSheet();render();toast("Deleted")},
   newbook(){B={id:null,type:"trip",name:"",cur:(S.books[S.books.length-1]||{}).cur||"৳",start:"",budget:"",members:[{id:uid(),name:"",heads:1},{id:uid(),name:"",heads:1}]};openSheet("book")},
   editbook(){const b=curBook();B=JSON.parse(JSON.stringify(b));B.budget=B.budget||"";openSheet("book")},
   btype(d){B.type=d.t;drawSheet()},
@@ -475,7 +501,7 @@ const A={
       if(!nb.members.length)return err("Add at least one member.")}
     const i=S.books.findIndex(x=>x.id===nb.id);if(i>=0)S.books[i]=nb;else S.books.push(nb);save();const isNew=!B.id;closeSheet();
     if(isNew)A.open({id:nb.id});else render();toast(isNew?"Created":"Saved")},
-  "delbook-yes"(){S.tx=S.tx.filter(t=>t.bookId!==B.id);S.books=S.books.filter(b=>b.id!==B.id);save();closeSheet();ui.view="home";render(true);toast("Deleted")},
+  "delbook-yes"(){txOf(B).forEach(t=>{if(t.receipt)IDB.del(t.receipt).catch(()=>{})});S.tx=S.tx.filter(t=>t.bookId!==B.id);S.books=S.books.filter(b=>b.id!==B.id);save();closeSheet();ui.view="home";render(true);toast("Deleted")},
   share(){openSheet("share")},shback(){ui.sheet.out=null;drawSheet()},
   async sh(d){const b=curBook(),pack=bs=>({v:1,app:"khoroch",books:bs,tx:S.tx.filter(t=>bs.some(x=>x.id===t.bookId))});let o;
     if(d.k==="summary"){const t=summaryText(b);o={label:"Summary message",text:t,shareText:t}}
@@ -488,14 +514,20 @@ const A={
   savefile(){const o=ui.sheet.out,blob=new Blob([o.fileText||o.text],{type:o.mime});let f=null;try{f=new File([blob],o.filename,{type:o.mime})}catch(e){}
     if(f&&navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f],title:o.filename}).catch(()=>{});return}
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=o.filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);err("Saved to your downloads.")},
+  cam(){$("#cam").click()},upload(){$("#rfile").click()},
+  rmrcpt(){if(F.newReceipt)URL.revokeObjectURL(F.newReceipt.url);F.newReceipt=null;F.removeReceipt=!!F.receipt;F.scan=null;F.scanTok++;F.filled={};drawSheet()},
+  useamt(d){F.amount=d.v;F.filled=Object.assign({},F.filled,{amount:1});drawSheet()},
+  viewrcpt(){const u=F&&(F.newReceipt?F.newReceipt.url:F.receiptUrl);if(!u)return;$("#viewimg").src=u;$("#viewer").hidden=false},
+  closeviewer(){$("#viewer").hidden=true;$("#viewimg").removeAttribute("src")},
   import(){openSheet("import")},pickfile(){$("#file").click()},
   doimport(){const v=$("#imp").value;if(!v.trim())return err("Paste a code or choose a file first.");doImport(v)}
 };
 document.addEventListener("click",e=>{const el=e.target.closest("[data-a]");if(el&&!el.disabled&&A[el.dataset.a]){A[el.dataset.a](el.dataset);return}if(e.target===$("#scrim"))closeSheet()});
 document.addEventListener("input",e=>{const d=e.target.dataset;
-  if(F&&d.f){const p=d.f.split(".");if(p[1])F[p[0]][p[1]]=e.target.value;else F[d.f]=e.target.value;preview()}
+  if(F&&d.f){if(F.filled&&F.filled[d.f]){delete F.filled[d.f];e.target.classList.remove("filled")}const p=d.f.split(".");if(p[1])F[p[0]][p[1]]=e.target.value;else F[d.f]=e.target.value;preview()}
   if(B&&d.b)B[d.b]=e.target.value;if(B&&d.bm!==undefined)B.members[+d.bm].name=e.target.value});
-document.addEventListener("keydown",e=>{if(e.key==="Escape"&&ui.sheet)closeSheet()});
+document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(!$("#viewer").hidden)A.closeviewer();else if(ui.sheet)closeSheet()});
+["cam","rfile"].forEach(id=>$("#"+id).addEventListener("change",e=>{const f=e.target.files[0];e.target.value="";if(f)handleFile(f)}));
 $("#file").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>doImport(r.result);r.readAsText(f);e.target.value=""});
 addEventListener("popstate",()=>{if(ui.sheet){closeSheet();if(ui.view!=="home")history.pushState({k:"book"},"");return}if(ui.view!=="home"){ui.view="home";render(true)}});
 addEventListener("beforeinstallprompt",e=>{e.preventDefault();ui.canInstall=e;if(ui.view==="home")render()});
@@ -545,6 +577,102 @@ function iso(c,vals,labels,still){const w=c.clientWidth,h=c.clientHeight;if(!w)r
       if(step>=30||i%2===0){x.fillStyle=mu;x.fillText(labels[i],bx+bw/2,base+15)}});
     if(k<1&&c.isConnected)requestAnimationFrame(frame)}
   requestAnimationFrame(frame)}
+
+/* ---------- bills: storage ---------- */
+const IDB={p:null,open(){return this.p||(this.p=new Promise((res,rej)=>{const r=indexedDB.open("khoroch",1);r.onupgradeneeded=()=>r.result.createObjectStore("receipts");r.onsuccess=()=>res(r.result);r.onerror=()=>{this.p=null;rej(r.error)}}))},
+  async run(mode,fn){const db=await this.open();return new Promise((res,rej)=>{const tx=db.transaction("receipts",mode),q=fn(tx.objectStore("receipts"));tx.oncomplete=()=>res(q&&q.result);tx.onerror=tx.onabort=()=>rej(tx.error)})},
+  put(id,b){return this.run("readwrite",s=>s.put(b,id))},get(id){return this.run("readonly",s=>s.get(id))},del(id){return this.run("readwrite",s=>s.delete(id))}};
+const RURL={};
+async function rurl(id){if(RURL[id])return RURL[id];let b=null;try{b=await IDB.get(id)}catch(e){}return b?(RURL[id]=URL.createObjectURL(b)):null}
+
+/* ---------- bills: reading ---------- */
+const TESS="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js",
+      PDFJS="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
+      PDFJS_W="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+const OCR={w:null,cb:null},LS={};
+function loadScript(src){return LS[src]||(LS[src]=new Promise((res,rej)=>{const s=document.createElement("script");s.src=src;s.async=true;s.onload=res;s.onerror=()=>{delete LS[src];s.remove();rej(new Error("load script"))};document.head.appendChild(s)}))}
+function ocrWorker(){if(!OCR.w)OCR.w=Tesseract.createWorker("eng",1,{logger:m=>OCR.cb&&OCR.cb(m)}).catch(e=>{OCR.w=null;throw e});return OCR.w}
+async function imgCanvas(file){const url=URL.createObjectURL(file);try{const img=new Image();await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error("image"));img.src=url});
+  const k=Math.min(1,1800/Math.max(img.naturalWidth,img.naturalHeight)),c=document.createElement("canvas");c.width=Math.max(1,Math.round(img.naturalWidth*k));c.height=Math.max(1,Math.round(img.naturalHeight*k));
+  const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(img,0,0,c.width,c.height);return c}finally{URL.revokeObjectURL(url)}}
+function pdfText(tc){const rows=[];(tc.items||[]).forEach(it=>{if(!it.str||!it.transform)return;const y=it.transform[5],x=it.transform[4];let r=rows.find(r=>Math.abs(r.y-y)<=3);if(!r)rows.push(r={y,items:[]});r.items.push({x,s:it.str})});
+  return rows.sort((a,b)=>b.y-a.y).map(r=>r.items.sort((a,b)=>a.x-b.x).map(i=>i.s).join(" ")).join("\n")}
+function parseBill(raw){
+  const BN="০১২৩৪৫৬৭৮৯",txt=String(raw||"").replace(/[০-৯]/g,d=>BN.indexOf(d));
+  const lines=txt.split(/\r?\n/).map(l=>l.replace(/[|]/g," ").replace(/\s+/g," ").trim()).filter(Boolean);
+  const nums=l=>{l=l.replace(/\b\d{1,4}[-/.]\d{1,2}[-/.]\d{2,4}\b/g," ").replace(/\b\d{1,2}:\d{2}(:\d{2})?\s*(am|pm)?/gi," ");const out=[],re=/\d{1,3}(?:,\d{2,3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?/g;let m;
+    while((m=re.exec(l))){if(/^\s*%/.test(l.slice(m.index+m[0].length)))continue;const v=parseFloat(m[0].replace(/,/g,""));if(v>0&&v<1e8)out.push(v)}return out};
+  const R3=/grand\s*total|net\s*payable|total\s*payable|amount\s*payable|payable\s*amount|amount\s*due|balance\s*due|total\s*due|net\s*amount|bill\s*amount|total\s*amount|invoice\s*total|total\s*bill|total\s*(tk|taka|bdt)|সর্বমোট|মোট\s*টাকা/i,
+        R2=/\btotal\b|মোট|\bnet\b|payable/i,R1=/\bamount\b|\bpaid\b|\btaka\b|\btk\b|৳|\bbdt\b/i,
+        SUB=/sub\s*-?\s*total|total\s*(qty|quantity|items?|pcs|discount|vat|tax|saving)/i,BAD=/\bvat\b|\btax\b|discount|change|return|tendered|\bqty\b|\bpcs\b|service\s*charge/i,
+        NOAMT=/tel|phone|mobile|cell|hotline|invoice|bill\s*no|order|token|table|\bbin\b|reg|date|time|\bno\b|#|\bid\b/i;
+  const cands=[];lines.forEach((l,i)=>{const r=R3.test(l)?3:R2.test(l)?2:R1.test(l)?1:0;if(!r||SUB.test(l)||(r<3&&BAD.test(l)))return;
+    let ns=nums(l),v=ns[ns.length-1];if(!ns.length&&lines[i+1])v=nums(lines[i+1])[0];if(v)cands.push({r,v,i})});
+  let amount=null;if(cands.length){const top=Math.max(...cands.map(c=>c.r));amount=cands.filter(c=>c.r===top).pop().v}
+  const loose=[];lines.forEach(l=>{if(!NOAMT.test(l))nums(l).forEach(v=>loose.push(v))});
+  if(amount==null&&loose.length){const dec=loose.filter(v=>v%1);amount=Math.max(...(dec.length?dec:loose.filter(v=>v<1e6)))}
+  if(!isFinite(amount))amount=null;
+  const alts=[...new Set(cands.map(c=>c.v).concat(loose.filter(v=>v%1||v>=50)))].filter(v=>v!==amount).sort((a,b)=>b-a).slice(0,6);
+  const MON={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12},Y=new Date().getFullYear();
+  const mk=(y,mo,d)=>{y=+y;if(y<100)y+=2000;mo=+mo;d=+d;if(y<Y-3||y>Y+1||mo<1||mo>12||d<1||d>31)return null;const dt=new Date(y,mo-1,d);return dt.getMonth()!==mo-1?null:`${y}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}`};
+  const fd=l=>{let m,r;
+    if((m=l.match(/\b(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})\b/))&&(r=mk(m[1],m[2],m[3])))return r;
+    if(m=l.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})\b/)){let d=m[1],mo=m[2];if(+mo>12&&+d<=12)[d,mo]=[mo,d];if(r=mk(m[3],mo,d))return r}
+    if((m=l.match(/\b(\d{1,2})(?:st|nd|rd|th)?[\s.,-]*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s.,'-]*(\d{2,4})\b/i))&&(r=mk(m[3],MON[m[2].toLowerCase()],m[1])))return r;
+    if((m=l.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s.-]*(\d{1,2})(?:st|nd|rd|th)?,?[\s-]*(\d{4})\b/i))&&(r=mk(m[3],MON[m[1].toLowerCase()],m[2])))return r;
+    return null};
+  let date=null;for(const l of lines.filter(l=>/date|তারিখ/i.test(l)).concat(lines)){if(date=fd(l))break}
+  const SKIP=/invoice|receipt|\bbill\b|memo|\btax\b|\bvat\b|date|time|tel|phone|mobile|cell|hotline|address|road|house|www|http|@|order|table|token|customer|welcome|thank|branch|\bbin\b|reg\b|cashier|counter/i;
+  let merchant=null;for(const l of lines.slice(0,8)){const n=(l.match(/[A-Za-zঀ-৿]/g)||[]).length;if(n>=3&&n/l.length>=.5&&!SKIP.test(l)){merchant=l.replace(/^[^A-Za-zঀ-৿]+|[^A-Za-zঀ-৿.)]+$/g,"").slice(0,60);break}}
+  if(merchant&&merchant===merchant.toUpperCase()&&/[A-Z]{2}/.test(merchant))merchant=merchant.toLowerCase().replace(/(^|[\s&(-])([a-z])/g,(_,a,b)=>a+b.toUpperCase());
+  const lc=txt.toLowerCase(),CK=[["stay",/hotel|resort|\binn\b|lodge|guest\s*house|cottage|eco\s*village|room\s*(rent|charge)|check[\s-]*in/],
+    ["food",/restaurant|restora|cafe|café|coffee|\btea\b|kitchen|food|biryani|pizza|burger|bakery|sweets|dining|meal|lunch|dinner|breakfast|snack|juice|chicken|kacchi|naan/],
+    ["health",/pharma|medicine|medical|hospital|clinic|diagnostic|tablet|capsule/],
+    ["transport",/\bbus\b|train|railway|airline|airways|air\s*ticket|flight|fuel|petrol|octane|diesel|filling\s*station|\bcng\b|uber|pathao|taxi|parking|car\s*rent|toll/],
+    ["bills",/electricity|desco|dpdc|wasa|titas|gas\s*bill|internet|broadband|recharge|utility/],
+    ["shopping",/super\s*shop|\bmart\b|supermarket|fashion|\bstore\b|\bshop\b|\bmall\b|garments|clothing|shoes|bazar/],
+    ["sights",/ticket|entry\s*fee|museum|\bpark\b|\bboat\b/]];
+  const cat=(CK.find(c=>c[1].test(lc))||[])[0]||null;
+  return{amount,date,merchant,cat,alts}}
+function applyFound(f){F.filled={};
+  if(f.amount&&!(parseFloat(F.amount)>0)){F.amount=String(f.amount);F.filled.amount=1}
+  if(f.date&&(!F.id||F.date===today())){F.date=f.date;F.filled.date=1}
+  if(f.merchant&&!F.desc.trim()){F.desc=f.merchant;F.filled.desc=1}
+  if(f.cat&&!F.catTouched)F.cat=f.cat}
+async function handleFile(file){if(!F)return;const tok=++F.scanTok,alive=()=>F&&F.scanTok===tok;
+  const set=(p,msg)=>{if(!alive())return;F.scan={state:"busy",progress:p,msg};const bar=$("#scanbar"),m=$("#scanmsg");if(bar&&m){bar.style.width=Math.round(p*100)+"%";m.textContent=msg}else drawSheet()};
+  F.removeReceipt=!!F.receipt;set(.02,"Opening the bill…");
+  try{const pdf=/pdf/i.test(file.type)||/\.pdf$/i.test(file.name||"");if(file.size>25e6)throw new Error("too big");
+    let canvas,text="";
+    if(pdf){if(!window.pdfjsLib)await loadScript(PDFJS);pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_W;
+      const doc=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise,page=await doc.getPage(1),v0=page.getViewport({scale:1}),vp=page.getViewport({scale:Math.min(3,1600/v0.width)});
+      canvas=document.createElement("canvas");canvas.width=Math.round(vp.width);canvas.height=Math.round(vp.height);const cx=canvas.getContext("2d");cx.fillStyle="#fff";cx.fillRect(0,0,canvas.width,canvas.height);
+      await page.render({canvasContext:cx,viewport:vp}).promise;text=pdfText(await page.getTextContent())}
+    else canvas=await imgCanvas(file);
+    const blob=await new Promise(r=>canvas.toBlob(r,"image/jpeg",.8));if(!alive())return;
+    if(blob){if(F.newReceipt)URL.revokeObjectURL(F.newReceipt.url);F.newReceipt={blob,url:URL.createObjectURL(blob)}}
+    if(text.replace(/\s/g,"").length<15){
+      if(IN_ARTIFACT){F.scan={state:"error",msg:"Reading bills works in the installed app. The bill is attached."};drawSheet();return}
+      OCR.cb=m=>{const p=+m.progress||0;if(m.status==="recognizing text")set(.15+.85*p,"Reading the bill… "+Math.round(p*100)+"%");else set(.04+.1*p,navigator.onLine===false?"Loading the bill reader…":"Loading the bill reader (first time needs internet)…")};
+      set(.04,"Loading the bill reader…");if(!window.Tesseract)await loadScript(TESS);const w=await ocrWorker();if(!alive())return;
+      const r=await w.recognize(canvas);text=(r&&r.data&&r.data.text)||""}
+    OCR.cb=null;if(!alive())return;
+    const found=parseBill(text);applyFound(found);F.scan={state:"done",found,alts:found.alts,text:text.trim()};drawSheet()}
+  catch(e){OCR.cb=null;if(!alive())return;const msg=String(e&&e.message||e),att=F.newReceipt?" The bill is still attached.":"";
+    F.scan={state:"error",msg:msg==="too big"?"That file is over 25 MB. Try a photo or a smaller PDF.":/load|fetch|network|script|import|wasm|failed/i.test(msg)?"Couldn't load the bill reader. Connect to the internet once, then it works offline."+att:"Couldn't read this file. Try a clearer photo, or enter the details below."+att};drawSheet()}}
+function scanBlock(){const b=curBook(),sc=F.scan,has=F.newReceipt||(F.receipt&&!F.removeReceipt);
+  if(!has&&!sc)return `<div class="scan"><div class="scan-btns"><button type="button" data-a="cam">${ico(I.cam)}Take photo</button><button type="button" data-a="upload">${ico(I.up)}Upload bill</button></div><span class="muted" style="font-size:.88rem">Snap or upload a bill, invoice or PDF to fill in the amount, date and shop.</span></div>`;
+  const url=F.newReceipt?F.newReceipt.url:F.receiptUrl;let st;
+  if(!sc)st="<span>Bill attached. Tap it to view.</span>";
+  else if(sc.state==="busy")st=`<span id="scanmsg">${esc(sc.msg)}</span><div class="prog"><i id="scanbar" style="width:${Math.round(sc.progress*100)}%"></i></div>`;
+  else if(sc.state==="done"){const f=sc.found,bits=[f.amount?fmt(f.amount,b.cur):"",f.date?dayLabel(f.date):"",f.merchant?esc(f.merchant):""].filter(Boolean);
+    st=bits.length?`<span><b>Found</b> ${bits.join(" · ")}</span><span class="muted" style="font-size:.86rem">Check the highlighted fields before saving.</span>`:"<span>Couldn't find the total. Enter it below. The bill is still attached.</span>"}
+  else st=`<span class="neg">${esc(sc.msg)}</span>`;
+  let h=`<div class="scan"><div class="rcpt">${url?`<button type="button" class="thumb" data-a="viewrcpt" aria-label="View bill"><img src="${url}" alt=""></button>`:`<span class="thumb">${ico(I.file)}</span>`}<div class="found">${st}</div>${sc&&sc.state==="busy"?"<span></span>":'<button type="button" class="x" data-a="rmrcpt" aria-label="Remove bill">×</button>'}</div>`;
+  if(sc&&sc.state==="done"&&sc.alts.length)h+=`<div class="f">${sc.found.amount?"Wrong total? Tap the right amount:":"Amounts on the bill:"}<div class="alts">${sc.alts.map(v=>`<button type="button" data-a="useamt" data-v="${v}">${fmt(v,b.cur)}</button>`).join("")}</div></div>`;
+  if(sc&&sc.state==="done"&&sc.text)h+=`<details><summary class="muted" style="font-size:.88rem">Show the text it read</summary><pre class="ocr">${esc(sc.text)}</pre></details>`;
+  if(!sc||sc.state!=="busy")h+=`<div class="scan-btns"><button type="button" data-a="cam">${ico(I.cam)}Retake</button><button type="button" data-a="upload">${ico(I.up)}Upload</button></div>`;
+  return h+"</div>"}
 
 /* ---------- start ---------- */
 S=load()||(window.__SEED__?JSON.parse(JSON.stringify(window.__SEED__)):demo());
