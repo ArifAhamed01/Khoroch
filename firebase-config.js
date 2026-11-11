@@ -1,10 +1,9 @@
-// Khoroch sync settings. Leave the values empty to keep the app offline-only.
-// To turn on sign-in, sync and shared trips, follow SYNC_SETUP.md and paste your
-// Firebase web app config here. These values are safe to publish: access is
-// controlled by the Firestore security rules in firestore.rules.
+// Khoroch sync settings for the Firebase project "khoroch" (khoroch-f9735).
+// Paste the apiKey from Firebase console > Project settings > General > Your apps > Khoroch.
+// These values are safe to publish: access is controlled by the Firestore rules in firestore.rules.
 window.KHOROCH_FIREBASE = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  appId: ""
+  apiKey: "PASTE_API_KEY_HERE",
+  authDomain: "khoroch-f9735.firebaseapp.com",
+  projectId: "khoroch-f9735",
+  appId: "1:676746792441:web:3a2244bbd381b8948bc128"
 };

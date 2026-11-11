@@ -1045,7 +1045,7 @@ function syncSoon(){if(!SYNC.user)return;clearTimeout(SYNC.timer);SYNC.timer=set
 function quietSave(){save.quiet=true;save();save.quiet=false}
 let renderTimer=null;function renderSoon(){clearTimeout(renderTimer);renderTimer=setTimeout(()=>render(),120)}
 function onErr(e){const c=String(e&&e.code||e&&e.message||e);setSync("error",/permission/.test(c)?"Sync was refused. Check the Firestore security rules in the setup guide.":"Sync stopped ("+c+"). Reopen the app to try again.")}
-async function startSync(){const cfg=window.KHOROCH_FIREBASE;if(IN_ARTIFACT||!cfg||!cfg.apiKey||!cfg.projectId)return;SYNC.cfg=cfg;
+async function startSync(){const cfg=window.KHOROCH_FIREBASE;if(IN_ARTIFACT||!cfg||!cfg.apiKey||!cfg.projectId||/PASTE/.test(cfg.apiKey))return;SYNC.cfg=cfg;
   readJoin();addEventListener("hashchange",()=>{if(!readJoin())return;if(SYNC.user)doJoin();else if(SYNC.fb){closeSheet();openSheet("acct",{mode:"in"})}});
   render();
   try{SYNC.fb=await fbAdapter(cfg)}catch(e){SYNC.cfg=cfg;setSync("error","Couldn't load sync. Connect to the internet once, then it works offline.");return}
