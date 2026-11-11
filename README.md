@@ -52,8 +52,9 @@ Many cards waive the yearly fee after a set number of transactions, and every ba
 - **Backup** of every book as a single code or file. Bill photos stay on the phone and aren't included.
 
 ### Design
-- Built around the **khata**, the cloth-bound ledger used across Bangladesh. Each trip or ledger is a khata with a stitched spine, entries sit on blue-ruled pages with a red margin, and settling up is the **হালখাতা** card in khata red.
-- Design rules from [UI/UX Pro Max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) for personal finance apps: trust blue for actions, green for money coming back, red for money owed, Inter for clear numbers, touch targets of at least 44 px, and text contrast of at least 4.5:1 in both light and dark mode.
+- A clean, modern look inspired by Sylhet's tea gardens: a cool white page, deep tea-garden green for the hero and the **হালখাতা** settle-up card, jade for every button, and gold only for the coin and travel routes.
+- Each khata is a soft pastel card in its own colour, so trips, daily ledgers and credit cards are easy to tell apart at a glance.
+- Design rules from [UI/UX Pro Max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) for personal finance apps: green for money coming back, red for money owed, touch targets of at least 44 px, and text contrast of at least 4.5:1 in both light and dark mode.
 - A 3D globe of travel routes that you can spin by dragging, cards that tilt, 3D bar charts and a coin flip when you save.
 - Follows your phone's light or dark theme.
 - Respects the system's reduced-motion setting.

@@ -6,8 +6,8 @@
  "scope": "./",
  "display": "standalone",
  "orientation": "portrait",
- "background_color": "#10143f",
- "theme_color": "#10143f",
+ "background_color": "#0b3d2e",
+ "theme_color": "#0b3d2e",
  "categories": [
   "finance",
   "travel"
