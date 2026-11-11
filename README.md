@@ -39,6 +39,7 @@ Khoroch (খরচ, "expense" in Bangla) is a lightweight expense app that insta
 - **Backup** of every book as a single code or file. Bill photos stay on the phone and aren't included.
 
 ### Design
+- Built around the **khata**, the cloth-bound ledger used across Bangladesh. Each trip or ledger is a khata with a stitched spine, entries sit on blue-ruled pages with a red margin, and settling up is the **হালখাতা** card in khata red.
 - Design rules from [UI/UX Pro Max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) for personal finance apps: trust blue for actions, green for money coming back, red for money owed, Inter for clear numbers, touch targets of at least 44 px, and text contrast of at least 4.5:1 in both light and dark mode.
 - A 3D globe of travel routes that you can spin by dragging, cards that tilt, 3D bar charts and a coin flip when you save.
 - Follows your phone's light or dark theme.
