@@ -25,6 +25,14 @@ Khoroch (খরচ, "expense" in Bangla) is a lightweight expense app that insta
 - Set an optional **monthly budget** to see what's left and how much you can spend per day.
 - Browse month by month, with daily totals and a category breakdown.
 
+### Credit card fee waivers
+Many cards waive the yearly fee after a set number of transactions, and every bank counts differently. A **Credit card** khata tracks this for each card.
+- **Each card has its own rules:** transactions needed, the date the fee year starts, an optional minimum amount, the annual fee, and which kinds of transaction count (card purchase, online, QR payment, mobile recharge, utility bill, wallet or transfer, cash withdrawal, EMI, fees).
+- **Upload a monthly statement** as a PDF (password-protected ones too), a photo or a CSV. Khoroch lists the transactions, skips payments and refunds, marks anything already added, and lets you untick lines before adding them.
+- **Each transaction gets a type** from its description, for example "BANGLA QR" becomes a QR payment and "GP RECHARGE" a mobile recharge. You can change the type, or mark a single transaction as counting or not counting.
+- **See your progress:** a punch card of qualifying transactions with an even-pace marker, transactions each month (counted and not counted), spending each month, and breakdowns by type and category. Past fee years are kept.
+- Statement passwords are used only to open the file and are never saved.
+
 ### Scan bills
 - **Take a photo** of a bill or **upload** an image or PDF invoice when adding an expense.
 - Khoroch reads the **total, date and shop name** and fills them in for you to check. If it picks the wrong total, tap the right one from the amounts it found.

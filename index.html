@@ -198,6 +198,31 @@ pre.ocr{white-space:pre-wrap;word-break:break-word;font:12px/1.45 ui-monospace,M
 .viewer .x{align-self:flex-end;color:#fff;margin:6px}
 .viewer img{flex:1;min-height:0;width:100%;object-fit:contain}
 .clip{width:14px;height:14px;vertical-align:-2px}
+.punch{display:grid;grid-template-columns:repeat(auto-fill,minmax(26px,1fr));gap:8px 6px;padding:16px 16px 16px 36px}
+.punch i{display:block;aspect-ratio:1;border-radius:50%;border:2px solid var(--line-strong);background:var(--paper)}
+.punch i.on{background:var(--primary);border-color:var(--primary);box-shadow:inset 0 -3px 0 rgba(0,0,0,.18)}
+.punch i.pace{outline:2px dashed var(--fg);outline-offset:2px}
+.pnote{padding:0 16px 14px 36px;font-size:.9rem;color:var(--muted)}
+.pill.ok{background:color-mix(in srgb,var(--pos) 16%,var(--surface));color:var(--pos)}
+.pill.bad{background:color-mix(in srgb,var(--neg) 14%,var(--surface));color:var(--neg)}
+.pill.wait{background:var(--sunk);color:var(--fg)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.92rem;color:var(--muted);padding:0 0 4px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+canvas.stack{width:100%;height:210px;display:block}
+.trow{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:12px 16px 12px 36px;border-top:1px solid var(--rule);align-items:center}
+.trow:first-child{border-top:0}
+.trow .meta{font-size:.88rem;color:var(--muted)}
+.trow .pill{grid-row:1/span 2;grid-column:2}
+.yes{color:var(--pos);font-weight:600}.no{color:var(--muted)}
+.rvlist{display:flex;flex-direction:column}
+.rv{display:grid;grid-template-columns:auto 1fr auto;gap:2px 12px;align-items:center;padding:10px 0;border:0;border-top:1px solid var(--rule);width:100%;text-align:left;background:none;color:var(--fg);border-radius:0}
+.rv .box{width:24px;height:24px;border-radius:6px;border:2px solid var(--line-strong);display:grid;place-items:center;color:transparent;grid-row:1/span 2}
+.rv .box .ic{width:16px;height:16px;stroke-width:3}
+.rv[aria-pressed="true"] .box{background:var(--primary);border-color:var(--primary);color:#fff}
+.rv[aria-pressed="false"] .d{text-decoration:line-through;color:var(--muted)}
+.rv .d{min-width:0;overflow-wrap:anywhere;font-weight:500}
+.rv .a{font-weight:600;text-align:right}
+.rv .s{grid-column:2/-1;font-size:.86rem;color:var(--muted)}
 @media (prefers-reduced-motion: no-preference){
   .enter{animation:enter .38s cubic-bezier(.2,.8,.2,1)}
   @keyframes enter{from{opacity:.4;transform:perspective(900px) translateZ(-70px) rotateX(5deg)}to{opacity:1;transform:none}}
@@ -217,6 +242,7 @@ pre.ocr{white-space:pre-wrap;word-break:break-word;font:12px/1.45 ui-monospace,M
 <input type="file" id="file" accept=".json,.txt,application/json,text/plain" hidden>
 <input type="file" id="cam" accept="image/*" capture="environment" hidden>
 <input type="file" id="rfile" accept="image/*,application/pdf,.pdf" hidden>
+<input type="file" id="sfile" accept="application/pdf,.pdf,image/*,.csv,text/csv,.txt,text/plain" hidden>
 <div class="viewer" id="viewer" hidden><button class="x" data-a="closeviewer" aria-label="Close">×</button><img id="viewimg" alt="Bill"></div>
 
 <script>
@@ -265,8 +291,16 @@ function demo(){const t=today();return{books:[
    .map((r,i)=>({id:"d"+i,bookId:"demo-trip",kind:"expense",desc:r[0],amount:r[1],cat:r[2],date:addDays(t,r[3]),payers:{[r[4]]:r[1]},split:{mode:r[5],among:["m1","m2","m3"]},note:"",created:i}))
   .concat([["Groceries",1250,"food",0],["Rickshaw",80,"transport",0],["Mobile recharge",299,"bills",-1],["Lunch",220,"food",-1],["Pharmacy",460,"health",-2]]
    .map((r,i)=>({id:"p"+i,bookId:"demo-daily",kind:"expense",desc:r[0],amount:r[1],cat:r[2],date:addDays(t,r[3]),note:"",created:i})))}}
+function demoCard(){const t=today(),d=new Date(t+"T12:00:00");d.setMonth(d.getMonth()-7);const fs=String(d.getMonth()+1).padStart(2,"0")+"-15";
+  const book={id:"demo-card",type:"card",name:"Sample Visa card",sample:true,cur:"৳",hue:340,budget:0,members:[],created:3,statements:[],
+    card:{last4:"4821",target:24,feeStart:fs,minAmt:0,fee:2875,rules:Object.assign({},CT_DEFAULT,{qr:false})}};
+  const L=[["Shwapno Gulshan",1850],["Foodpanda",640],["GP recharge",299],["Bangla QR Star Kabab",420],["DESCO prepaid",1500],["bKash add money",3000],["Daraz",2350],["Pathao Food",520],["Aarong",4200],["Bangla QR tea stall",120]];
+  const fy=feeYear(cardOf(book),0),tx=[];let n=0;
+  monthsOf(fy).forEach((ym,i)=>{for(let k=0;k<2+(i%3);k++){const r=L[(i*3+k)%L.length],date=ym+"-"+String(3+k*8).padStart(2,"0");if(date<fy.start||date>t)continue;
+    const ct=classify(r[0]);tx.push({id:"c"+n,bookId:"demo-card",kind:"expense",desc:r[0],amount:r[1],cat:guessCat(r[0],ct),ctype:ct,date,note:"",created:n++})}});
+  return{book,tx}}
 function load(){try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);if(d&&Array.isArray(d.books)&&Array.isArray(d.tx))return d}}catch(e){}return null}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S));if(!save.asked&&navigator.storage&&navigator.storage.persist){save.asked=1;navigator.storage.persist().catch(()=>{})}}catch(e){toast("Couldn't save on this device")}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S,(k,v)=>k==="_v"?undefined:v));if(!save.asked&&navigator.storage&&navigator.storage.persist){save.asked=1;navigator.storage.persist().catch(()=>{})}}catch(e){toast("Couldn't save on this device")}}
 const book=id=>S.books.find(b=>b.id===id);
 const curBook=()=>book(ui.bookId);
 const txOf=b=>S.tx.filter(t=>t.bookId===b.id);
@@ -300,14 +334,17 @@ function home(){
     else{const m=today().slice(0,7),ms=spent(l.filter(t=>(t.date||"").startsWith(m)));total=fmt(ms,b.cur);
       sub=`<span>This month</span><span>${n} entries in total</span>${b.budget?`<span>Budget ${fmt(b.budget,b.cur)}</span>`:""}`;
       if(b.budget)bar=`<div class="bar"><i class="${ms>b.budget?"over":""}" style="width:${Math.min(100,ms/b.budget*100).toFixed(1)}%"></i></div>`}
+    if(b.type==="card"){const st=cardStats(b,0),c=st.c;total=fmt(st.spend,b.cur);
+      sub=`<span>${st.count} of ${c.target} for the fee waiver</span><span>${st.done?"Fee waived this year":"Fee year ends "+longDate(st.fy.end)}</span>`;
+      bar=`<div class="bar"><i style="width:${Math.min(100,st.count/c.target*100).toFixed(1)}%"></i></div>`}
     return `<button class="book" style="--h:${+b.hue||230}" data-a="open" data-id="${esc(b.id)}">
-      <span class="book-name">${esc(b.name)} <span class="pill">${b.type==="trip"?"Trip":"Daily ledger"}</span>${b.sample?'<span class="pill">Sample</span>':""}</span>
+      <span class="book-name">${esc(b.name)} <span class="pill">${b.type==="trip"?"Trip":b.type==="card"?"Credit card"+(b.card&&b.card.last4?" "+esc(b.card.last4):""):"Daily ledger"}</span>${b.sample?'<span class="pill">Sample</span>':""}</span>
       <span class="book-total num">${total}</span><span class="book-sub">${sub}</span>${bar}</button>`}).join("");
   return `<header class="hero"><canvas id="globe" aria-hidden="true"></canvas>
     <div class="hero-txt"><div class="brand"><i></i>Khoroch</div><h1>Split trips. Track every day.</h1><p>Works offline. Your data stays on this device.</p>
     ${ui.canInstall?'<button class="btn-ghost" data-a="install">Install app</button>':""}</div></header>
   <section><div class="sec-head"><h2>Your khatas</h2><button class="link" data-a="import">Import</button></div>
-    <div class="books">${cards||'<div class="empty">No khatas yet. Tap <b>New khata</b> to start a trip or a daily ledger.</div>'}</div></section>
+    <div class="books">${cards||'<div class="empty">No khatas yet. Tap <b>New khata</b> to start a trip, a daily ledger or a credit card.</div>'}</div></section>
   <button class="fab" data-a="newbook">+ New khata</button>`}
 
 function topbar(b){return `<div class="top"><button class="iconbtn" data-a="back" aria-label="Back">${ico(I.back)}</button><h1>${esc(b.name)}</h1>
@@ -364,10 +401,12 @@ function ledger(b){const m=ui.month,l=txOf(b).filter(t=>(t.date||"").startsWith(
   <button class="fab" data-a="addtx">+ Add expense</button>`}
 
 function render(nav){const b=curBook();if(ui.view!=="home"&&!b)ui.view="home";ui.isoData={};
-  const el=$("#app");el.innerHTML=ui.view==="home"?home():b.type==="trip"?trip(b):ledger(b);
+  const el=$("#app");el.innerHTML=ui.view==="home"?home():b.type==="trip"?trip(b):b.type==="card"?cardView(b):ledger(b);
   el.classList.remove("enter");if(nav){void el.offsetWidth;el.classList.add("enter");scrollTo(0,0)}
-  document.querySelectorAll("canvas[data-iso]").forEach(c=>{const d=ui.isoData[c.dataset.iso];if(d)iso(c,d.vals,d.labels)});
+  drawCharts(false);
   drawGlobe(performance.now())}
+function drawCharts(still){document.querySelectorAll("canvas[data-iso]").forEach(c=>{const d=ui.isoData[c.dataset.iso];if(d)iso(c,d.vals,d.labels,still)});
+  document.querySelectorAll("canvas[data-stack]").forEach(c=>{const d=ui.isoData[c.dataset.stack];if(d)stackBars(c,d.labels,d.a,d.b,still)})}
 
 /* ---------- sheets ---------- */
 const pick=(items,sel,a)=>`<div class="pick">${items.map(m=>`<button type="button" data-a="${a}" data-id="${esc(m.id)}" aria-pressed="${Array.isArray(sel)?sel.includes(m.id):sel===m.id}">${esc(m.name)}</button>`).join("")}</div>`;
@@ -381,6 +420,7 @@ function txSheet(){const b=curBook(),trip=b.type==="trip",groups=b.members.some(
   else{h+=scanBlock()+common+`<label class="f">What was it for?<input class="${F.filled&&F.filled.desc?"filled":""}" id="f-desc" data-f="desc" placeholder="Lunch, CNG, boat fare" maxlength="120" value="${esc(F.desc)}"></label>
     <div class="f">Category<div class="chips">${Object.keys(CATS).map(c=>`<button type="button" class="chip" data-a="cat" data-c="${c}" aria-pressed="${F.cat===c}">${catName(c)}</button>`).join("")}</div></div>
     <label class="f">Date<input class="${F.filled&&F.filled.date?"filled":""}" id="f-date" data-f="date" type="date" value="${esc(F.date)}"></label>`;
+    if(b.type==="card")h+=cardFields(b);
     if(trip){
       h+=`<div class="f">Who paid?${F.multi?b.members.map(m=>`<label class="rowin"><span>${esc(m.name)}</span><input class="num" id="f-pay-${esc(m.id)}" data-f="pay.${esc(m.id)}" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${esc(F.pay[m.id]||"")}"></label>`).join(""):pick(b.members,F.payer,"payer")}
         <button type="button" class="link" data-a="multi" style="align-self:flex-start">${F.multi?"Only one person paid":"More than one person paid"}</button></div>
@@ -402,11 +442,12 @@ function preview(){const p=$("#preview");if(!p||!F)return;const b=curBook(),amt=
   p.innerHTML=h}
 
 function bookSheet(){const used=new Set();if(B.id)txOf(B).forEach(t=>{Object.keys(t.payers||{}).forEach(k=>used.add(k));Object.keys((t.split||{}).custom||{}).forEach(k=>used.add(k));((t.split||{}).among||[]).forEach(k=>used.add(k));if(t.from)used.add(t.from);if(t.to)used.add(t.to)});
-  let h=head(B.id?"Edit "+(B.type==="trip"?"trip":"ledger"):"New khata");
-  if(!B.id)h+=`<div class="seg"><button data-a="btype" data-t="trip" aria-pressed="${B.type==="trip"}">Trip with others</button><button data-a="btype" data-t="personal" aria-pressed="${B.type==="personal"}">Daily ledger</button></div>`;
-  h+=`<label class="f">Name<input id="b-name" data-b="name" maxlength="60" placeholder="${B.type==="trip"?"Bandarban, December":"Daily expenses"}" value="${esc(B.name)}"></label>
+  let h=head(B.id?"Edit "+(B.type==="trip"?"trip":B.type==="card"?"card":"ledger"):"New khata");
+  if(!B.id)h+=`<div class="seg"><button data-a="btype" data-t="trip" aria-pressed="${B.type==="trip"}">Trip</button><button data-a="btype" data-t="personal" aria-pressed="${B.type==="personal"}">Daily ledger</button><button data-a="btype" data-t="card" aria-pressed="${B.type==="card"}">Credit card</button></div>`;
+  h+=`<label class="f">Name<input id="b-name" data-b="name" maxlength="60" placeholder="${B.type==="trip"?"Bandarban, December":B.type==="card"?"EBL Visa Platinum":"Daily expenses"}" value="${esc(B.name)}"></label>
   <div class="grid2"><label class="f">Currency<select id="b-cur" data-b="cur">${CURS.map(c=>`<option value="${c[0]}"${B.cur===c[0]?" selected":""}>${c[0]} ${c[1]}</option>`).join("")}</select></label>
-  ${B.type==="trip"?`<label class="f">Start date<input id="b-start" data-b="start" type="date" value="${esc(B.start||"")}"></label>`:`<label class="f">Monthly budget (optional)<input id="b-budget" class="num" data-b="budget" type="number" inputmode="decimal" min="0" placeholder="0" value="${esc(B.budget||"")}"></label>`}</div>`;
+  ${B.type==="card"?`<label class="f">Last 4 digits (optional)<input id="b-last4" class="num" data-b="card.last4" inputmode="numeric" maxlength="4" placeholder="1234" value="${esc(B.card.last4)}"></label>`:B.type==="trip"?`<label class="f">Start date<input id="b-start" data-b="start" type="date" value="${esc(B.start||"")}"></label>`:`<label class="f">Monthly budget (optional)<input id="b-budget" class="num" data-b="budget" type="number" inputmode="decimal" min="0" placeholder="0" value="${esc(B.budget||"")}"></label>`}</div>`;
+  if(B.type==="card")h+=cardRulesFields();
   if(B.type==="trip")h+=`<div class="f">Who is on the trip?<span style="font-weight:400">Add each person, or a couple or family as one entry and set how many people it covers.</span>
     ${B.members.map((m,i)=>`<div class="mem"><input id="b-m-${i}" data-bm="${i}" maxlength="40" placeholder="Name" aria-label="Member name" value="${esc(m.name)}">
       <div class="step" title="People"><button type="button" data-a="heads" data-i="${i}" data-d="-1" aria-label="Fewer people">−</button><b class="num">${m.heads}</b><button type="button" data-a="heads" data-i="${i}" data-d="1" aria-label="More people">+</button></div>
@@ -421,16 +462,16 @@ function shareSheet(){const b=curBook(),o=ui.sheet.out;
     <div class="actions"><button class="btn primary" data-a="copy">Copy</button>${navigator.share&&!IN_ARTIFACT&&o.shareText?'<button class="btn" data-a="nshare">Send</button>':""}${o.filename&&!IN_ARTIFACT?'<button class="btn" data-a="savefile">Save file</button>':""}</div>
     <button class="link" data-a="shback" style="align-self:center">Other options</button>`;
   const opt=(k,i,t,d)=>`<button class="opt" data-a="sh" data-k="${k}">${ico(i)}<span><b>${t}</b><span>${d}</span></span></button>`;
-  return head("Share and export")+(b.type==="trip"?opt("summary",I.text,"Summary message","Totals and who pays whom, ready for WhatsApp"):opt("summary",I.text,"Month summary","This month's total and categories as a message"))
-    +opt("code",I.copy,b.type==="trip"?"Trip code":"Ledger code","Paste it in a chat. Anyone with Khoroch can import the full book.")
+  return head("Share and export")+(b.type==="trip"?opt("summary",I.text,"Summary message","Totals and who pays whom, ready for WhatsApp"):b.type==="card"?opt("summary",I.text,"Fee waiver summary","Progress and month-by-month counts as a message"):opt("summary",I.text,"Month summary","This month's total and categories as a message"))
+    +opt("code",I.copy,b.type==="trip"?"Trip code":b.type==="card"?"Card code":"Ledger code","Paste it in a chat. Anyone with Khoroch can import the full book.")
     +opt("csv",I.table,"Spreadsheet (CSV)","Every entry, for Excel or Google Sheets")
     +opt("all",I.file,"Back up everything","All your khatas in one code or file")+'<p class="muted" style="margin:0;font-size:.88rem">Bill photos stay on this phone. They are not included in codes, backups or CSV files.</p>'}
 function importSheet(){return head("Import")+`<p class="muted" style="margin:0">Paste a Khoroch code, or pick a backup file. Importing a book you already have replaces your copy.</p>
   <textarea id="imp" placeholder="KH1Z:…" aria-label="Khoroch code"></textarea><div class="err" id="err" role="alert"></div>
   <div class="actions"><button class="btn" data-a="pickfile">Choose file</button><button class="btn primary" data-a="doimport">Import</button></div>`}
 function openSheet(type,extra){ui.sheet=Object.assign({type},extra||{});drawSheet();$("#scrim").hidden=false}
-function drawSheet(){const s=$("#sheet"),top=s.scrollTop;s.innerHTML={tx:txSheet,book:bookSheet,share:shareSheet,import:importSheet}[ui.sheet.type]();s.scrollTop=top;preview()}
-function closeSheet(){if(F&&F.newReceipt&&!F.newReceipt.kept)URL.revokeObjectURL(F.newReceipt.url);OCR.cb=null;ui.sheet=null;F=null;B=null;$("#scrim").hidden=true;$("#sheet").innerHTML=""}
+function drawSheet(){const s=$("#sheet"),top=s.scrollTop;s.innerHTML={tx:txSheet,book:bookSheet,share:shareSheet,import:importSheet,cardadd:cardAddSheet,stmt:stmtSheet,stmtinfo:stmtInfoSheet}[ui.sheet.type]();s.scrollTop=top;preview()}
+function closeSheet(){STMT.tok++;if(F&&F.newReceipt&&!F.newReceipt.kept)URL.revokeObjectURL(F.newReceipt.url);OCR.cb=null;ui.sheet=null;F=null;B=null;$("#scrim").hidden=true;$("#sheet").innerHTML=""}
 function toast(msg,coin){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,1900);
   if(coin){try{navigator.vibrate&&navigator.vibrate(12)}catch(e){}const c=document.createElement("div");c.className="coin";document.body.appendChild(c);setTimeout(()=>c.remove(),1000)}}
 const err=m=>{const e=$("#err");if(e)e.textContent=m};
@@ -449,12 +490,16 @@ const isDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||"");
 const sid=s=>String(s).replace(/[^\w.\-:@+]/g,"").slice(0,40);
 const numMap=o=>{const r={};if(o&&typeof o==="object")for(const k in o){const v=+o[k];if(isFinite(v))r[sid(k)]=v}return r};
 function clean(d){if(!d||!Array.isArray(d.books))throw new Error("shape");
-  const books=d.books.filter(b=>b&&b.id&&typeof b.name==="string").map(b=>({id:sid(b.id),type:b.type==="personal"?"personal":"trip",name:b.name.slice(0,80),cur:String(b.cur||"৳").slice(0,4),
+  const books=d.books.filter(b=>b&&b.id&&typeof b.name==="string").map(b=>({id:sid(b.id),type:b.type==="personal"||b.type==="card"?b.type:"trip",name:b.name.slice(0,80),cur:String(b.cur||"৳").slice(0,4),
     hue:Math.round(+b.hue||230)%360,start:isDate(b.start)?b.start:"",end:isDate(b.end)?b.end:"",budget:Math.max(0,+b.budget||0),created:+b.created||Date.now(),
     members:(Array.isArray(b.members)?b.members:[]).filter(m=>m&&m.id).map(m=>({id:sid(m.id),name:String(m.name||"").slice(0,60),heads:Math.max(1,Math.min(99,Math.round(+m.heads||1)))}))}));
+  books.forEach((nb,i)=>{const b=d.books.filter(b=>b&&b.id&&typeof b.name==="string")[i];if(nb.type!=="card")return;const c=b.card||{},r={};Object.keys(CT).forEach(k=>r[k]=c.rules&&k in c.rules?!!c.rules[k]:CT_DEFAULT[k]);
+    nb.card={last4:String(c.last4||"").replace(/\D/g,"").slice(-4),target:Math.max(1,Math.min(365,Math.round(+c.target||24))),feeStart:/^\d{2}-\d{2}$/.test(c.feeStart||"")?c.feeStart:"01-01",minAmt:Math.max(0,+c.minAmt||0),fee:Math.max(0,+c.fee||0),rules:r};
+    nb.statements=(Array.isArray(b.statements)?b.statements:[]).filter(x=>x&&x.id).slice(0,500).map(x=>({id:sid(x.id),file:String(x.file||"").slice(0,120),from:isDate(x.from)?x.from:"",to:isDate(x.to)?x.to:"",count:Math.max(0,Math.round(+x.count||0)),total:Math.max(0,+x.total||0),added:+x.added||Date.now()}))});
   const ids=new Set(books.map(b=>b.id));
   const tx=(Array.isArray(d.tx)?d.tx:[]).filter(t=>t&&ids.has(sid(t.bookId))&&isFinite(+t.amount)).map(t=>{const o={id:sid(t.id||uid()),bookId:sid(t.bookId),kind:t.kind==="settle"?"settle":"expense",amount:Math.abs(+t.amount),
       desc:String(t.desc||"").slice(0,160),cat:CATS[t.cat]?t.cat:"other",date:isDate(t.date)?t.date:today(),note:String(t.note||"").slice(0,200),created:+t.created||Date.now()};if(typeof t.receipt==="string"&&t.receipt)o.receipt=sid(t.receipt);
+    if(CT[t.ctype])o.ctype=t.ctype;if(t.count===true||t.count===false)o.count=t.count;if(typeof t.stmt==="string"&&t.stmt)o.stmt=sid(t.stmt);
     if(o.kind==="settle"){o.from=sid(t.from||"");o.to=sid(t.to||"")}
     else if(t.payers){o.payers=numMap(t.payers);const sp=t.split||{};o.split={mode:["heads","equal","custom"].includes(sp.mode)?sp.mode:"heads"};
       if(o.split.mode==="custom")o.split.custom=numMap(sp.custom);else o.split.among=(Array.isArray(sp.among)?sp.among:[]).map(sid)}
@@ -465,11 +510,16 @@ async function doImport(text){try{const d=clean(await decode(text));if(!d.books.
     S.tx.push(...d.tx);save();closeSheet();ui.view="home";render(true);toast(names.length===1?names[0]:names.length+" khatas imported")}
   catch(e){err("That isn't a Khoroch code or backup file. Copy the whole code and try again.")}}
 function summaryText(b){
+  if(b.type==="card"){const st=cardStats(b,ui.fy||0),c=st.c;
+    return `*${b.name}*\nFee year ${longDate(st.fy.start)} to ${longDate(st.fy.end)}\nQualifying transactions: ${st.count} of ${c.target}. ${st.line}\nSpent: ${fmt(st.spend,b.cur)} across ${st.list.length} transactions\n\nEach month:\n${st.months.filter(m=>m.cnt||m.not).map(m=>`• ${monthLabel(m.ym)}: ${m.cnt} counted, ${m.not} not counted, ${fmt(m.amt,b.cur)}`).join("\n")||"• No transactions yet"}`}
   if(b.type==="trip"){const s=summary(b),x=transfers(s.net);
     return `*${b.name}*\nTotal spent: ${fmt(s.total,b.cur)} (${fmt(s.total/(heads(b)||1),b.cur)} per person)\n\nTo settle up:\n${x.length?x.map(t=>`• ${mname(b,t.from)} pays ${mname(b,t.to)} ${fmt(t.amount,b.cur)}`).join("\n"):"• Everyone is settled"}\n\nBalances:\n${b.members.map(m=>{const r=Math.round(s.net[m.id]);return `• ${m.name}: paid ${fmt(s.paid[m.id],b.cur)}, share ${fmt(s.share[m.id],b.cur)}, ${r>0?"gets back "+fmt(r,b.cur):r<0?"owes "+fmt(-r,b.cur):"settled"}`}).join("\n")}`}
   const l=txOf(b).filter(t=>(t.date||"").startsWith(ui.month)),tot=spent(l);
   return `*${b.name}, ${monthLabel(ui.month)}*\nSpent: ${fmt(tot,b.cur)}${b.budget?" of "+fmt(b.budget,b.cur)+" budget":""}\n\n${byCat(l).map(([k,v])=>`• ${catName(k)}: ${fmt(v,b.cur)}`).join("\n")||"No entries"}`}
 function csv(b){const q=v=>{v=String(v??"");if(/^[=+\-@]/.test(v))v="'"+v;return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v},t=b.type==="trip";
+  if(b.type==="card"){const c=cardOf(b),rows=[["Date","Description","Amount","Transaction type","Category","Counts toward waiver","Reason","Note"]];
+    txOf(b).sort((x,y)=>(x.date||"").localeCompare(y.date||"")).forEach(x=>{const v=verdict(x,c,b.cur);rows.push([x.date,x.desc,x.amount,CT[x.ctype||"purchase"][0],catName(x.cat),v.ok?"Yes":"No",v.why,x.note])});
+    return rows.map(r=>r.map(q).join(",")).join("\n")}
   const rows=[["Date","Type","Category","Description","Amount",...(t?["Paid by",...b.members.map(m=>m.name+" share")]:[]),"Note"]];
   txOf(b).sort((x,y)=>(x.date||"").localeCompare(y.date||"")||(x.created||0)-(y.created||0)).forEach(x=>{
     if(x.kind==="settle")rows.push([x.date,"Paid back","",mname(b,x.from)+" paid back "+mname(b,x.to),x.amount,mname(b,x.from),...b.members.map(()=>""),x.note]);
@@ -479,18 +529,19 @@ const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").sl
 
 /* ---------- actions ---------- */
 function newF(b){const ids=b.members.map(m=>m.id);F={id:null,kind:"expense",amount:"",desc:"",cat:"food",date:today(),note:"",payer:ids[0],multi:false,pay:{},
-  mode:b.members.some(m=>m.heads>1)?"heads":"equal",among:ids.slice(),custom:{},from:ids[1]||ids[0],to:ids[0],receipt:null,receiptUrl:"",newReceipt:null,removeReceipt:false,scan:null,filled:{},catTouched:false,scanTok:0};
+  mode:b.members.some(m=>m.heads>1)?"heads":"equal",among:ids.slice(),custom:{},from:ids[1]||ids[0],to:ids[0],receipt:null,receiptUrl:"",newReceipt:null,removeReceipt:false,scan:null,filled:{},catTouched:false,scanTok:0,ctype:"purchase",countMode:"auto"};
   if(b.type==="trip"&&b.start&&today()<b.start)F.date=b.start}
 const A={
-  open(d){ui.view="book";ui.bookId=d.id;ui.tab="overview";ui.filter="All";ui.month=today().slice(0,7);history.pushState({k:"book"},"");render(true)},
+  open(d){ui.view="book";ui.bookId=d.id;ui.tab="overview";ui.fy=0;ui.filter="All";ui.month=today().slice(0,7);history.pushState({k:"book"},"");render(true)},
   back(){if(history.state&&history.state.k==="book")history.back();else{ui.view="home";render(true)}},
   tab(d){ui.tab=d.t;render()},filter(d){ui.filter=d.c;render()},
   month(d){const x=new Date(ui.month+"-01T12:00:00");x.setMonth(x.getMonth()+ +d.d);ui.month=iso10(x).slice(0,7);render()},
   install(){if(ui.canInstall){ui.canInstall.prompt();ui.canInstall=null;render()}},
   close(){closeSheet()},confirm(){ui.sheet.confirm=true;drawSheet();$("#sheet").scrollTop=1e5},noconfirm(){ui.sheet.confirm=false;drawSheet()},
-  addtx(){newF(curBook());if(curBook().type==="personal"&&ui.month!==today().slice(0,7))F.date=ui.month+"-01";openSheet("tx");setTimeout(()=>{const i=$("#f-amount");i&&i.focus()},80)},
+  addtx(){if(curBook().type==="card"){openSheet("cardadd");return}newF(curBook());if(curBook().type==="personal"&&ui.month!==today().slice(0,7))F.date=ui.month+"-01";openSheet("tx");setTimeout(()=>{const i=$("#f-amount");i&&i.focus()},80)},
   edittx(d){const b=curBook(),t=S.tx.find(x=>x.id===d.id);if(!t)return;newF(b);Object.assign(F,{id:t.id,kind:t.kind||"expense",amount:String(t.amount),desc:t.desc||"",cat:t.cat||"other",date:t.date,note:t.note||"",created:t.created});
-    F.catTouched=true;if(t.receipt){const rid=t.receipt;F.receipt=rid;rurl(rid).then(u=>{if(F&&F.receipt===rid){F.receiptUrl=u||"";if(!u)F.scan={state:"error",msg:"This bill photo isn't on this phone."};drawSheet()}})}
+    F.catTouched=true;if(b.type==="card"){F.ctype=t.ctype||"purchase";F.countMode=t.count===true?"yes":t.count===false?"no":"auto";F.stmt=t.stmt||""}
+    if(t.receipt){const rid=t.receipt;F.receipt=rid;rurl(rid).then(u=>{if(F&&F.receipt===rid){F.receiptUrl=u||"";if(!u)F.scan={state:"error",msg:"This bill photo isn't on this phone."};drawSheet()}})}
     if(t.kind==="settle"){F.from=t.from;F.to=t.to}
     else if(b.type==="trip"){const pk=Object.keys(t.payers||{});F.multi=pk.length>1;F.payer=pk[0]||F.payer;pk.forEach(k=>F.pay[k]=String(t.payers[k]));const sp=t.split||{};F.mode=sp.mode||"heads";
       if(F.mode==="equal"&&!b.members.some(m=>m.heads>1))F.mode="equal";if(sp.among&&sp.among.length)F.among=sp.among.slice();if(sp.custom)for(const k in sp.custom)F.custom[k]=String(Math.round(sp.custom[k]*100)/100)}
@@ -510,19 +561,28 @@ const A={
         else t.payers={[F.payer]:amt};
         if(F.mode==="custom"){const sh=fShares(),sum=Object.values(sh).reduce((a,c)=>a+c,0);if(Math.abs(sum-amt)>.5)return err(`The shares add up to ${fmt(sum,b.cur)}, but the expense is ${fmt(amt,b.cur)}.`);t.split={mode:"custom",custom:sh}}
         else{if(!F.among.length)return err("Pick at least one member this was for.");t.split={mode:F.mode,among:F.among.slice()}}}}
+    if(b.type==="card"&&F.kind==="expense"){t.ctype=CT[F.ctype]?F.ctype:"purchase";if(F.countMode!=="auto")t.count=F.countMode==="yes";if(F.stmt)t.stmt=F.stmt}
     if(F.kind==="expense"&&F.newReceipt){const rid="r"+uid();F.saving=true;try{await IDB.put(rid,F.newReceipt.blob);t.receipt=rid;RURL[rid]=F.newReceipt.url;F.newReceipt.kept=true;if(F.receipt)IDB.del(F.receipt).catch(()=>{})}catch(e){F.saving=false;return err("Couldn't save the bill photo on this phone. Remove it to save the entry without it.")}F.saving=false}
     else if(F.receipt&&(F.removeReceipt||F.kind!=="expense"))IDB.del(F.receipt).catch(()=>{});
     else if(F.receipt)t.receipt=F.receipt;
     const i=S.tx.findIndex(x=>x.id===t.id);if(i>=0)S.tx[i]=t;else S.tx.push(t);save();const was=!!F.id;closeSheet();render();toast(was?"Updated":"Saved",!was)},
   "deltx-yes"(){if(F.receipt)IDB.del(F.receipt).catch(()=>{});S.tx=S.tx.filter(t=>t.id!==F.id);save();closeSheet();render();toast("Deleted")},
-  newbook(){B={id:null,type:"trip",name:"",cur:(S.books[S.books.length-1]||{}).cur||"৳",start:"",budget:"",members:[{id:uid(),name:"",heads:1},{id:uid(),name:"",heads:1}]};openSheet("book")},
-  editbook(){const b=curBook();B=JSON.parse(JSON.stringify(b));B.budget=B.budget||"";openSheet("book")},
+  newbook(){B={id:null,type:"trip",name:"",cur:(S.books[S.books.length-1]||{}).cur||"৳",start:"",budget:"",members:[{id:uid(),name:"",heads:1},{id:uid(),name:"",heads:1}],
+    card:{last4:"",target:"24",feeDate:today(),minAmt:"",fee:"",rules:Object.assign({},CT_DEFAULT)}};openSheet("book")},
+  editbook(){const b=curBook();B=JSON.parse(JSON.stringify(b));B.budget=B.budget||"";
+    if(b.type==="card"){const c=cardOf(b);B.card={last4:c.last4,target:String(c.target),feeDate:feeYear(c,0).start,minAmt:c.minAmt?String(c.minAmt):"",fee:c.fee?String(c.fee):"",rules:Object.assign({},c.rules)}}
+    else B.card={last4:"",target:"24",feeDate:today(),minAmt:"",fee:"",rules:Object.assign({},CT_DEFAULT)};openSheet("book")},
+  crule(d){B.card.rules[d.id]=!B.card.rules[d.id];drawSheet()},
   btype(d){B.type=d.t;drawSheet()},
   addmember(){B.members.push({id:uid(),name:"",heads:1});drawSheet();const i=$("#b-m-"+(B.members.length-1));i&&i.focus()},
   rmmember(d){B.members.splice(+d.i,1);drawSheet()},
   heads(d){const m=B.members[+d.i];m.heads=Math.max(1,Math.min(99,m.heads+ +d.d));drawSheet()},
   savebook(){const name=B.name.trim();if(!name)return err("Give it a name.");
     const nb={id:B.id||uid(),type:B.type,name,cur:B.cur,hue:B.hue??[215,150,30,265,190,340][S.books.length%6],start:B.type==="trip"&&isDate(B.start)?B.start:"",end:B.end||"",budget:B.type==="personal"?Math.max(0,parseFloat(B.budget)||0):0,created:B.created||Date.now(),members:[]};
+    if(B.type==="card"){const t=Math.round(+B.card.target);if(!(t>=1&&t<=365))return err("Enter how many transactions the bank needs, for example 24.");
+      if(!isDate(B.card.feeDate))return err("Pick the date your fee year starts. It's usually when the card was issued or renewed.");
+      nb.card={last4:String(B.card.last4||"").replace(/\D/g,"").slice(-4),target:t,feeStart:B.card.feeDate.slice(5),minAmt:Math.max(0,+B.card.minAmt||0),fee:Math.max(0,+B.card.fee||0),rules:Object.assign({},B.card.rules)};
+      nb.statements=Array.isArray(B.statements)?B.statements:[]}
     if(B.type==="trip"){nb.members=B.members.filter(m=>m.name.trim()).map(m=>({id:m.id,name:m.name.trim(),heads:m.heads}));
       if(B.members.some(m=>!m.name.trim())&&B.id&&nb.members.length<B.members.length&&txOf(B).length)return err("Every member needs a name.");
       if(!nb.members.length)return err("Add at least one member.")}
@@ -547,13 +607,23 @@ const A={
   viewrcpt(){const u=F&&(F.newReceipt?F.newReceipt.url:F.receiptUrl);if(!u)return;$("#viewimg").src=u;$("#viewer").hidden=false},
   closeviewer(){$("#viewer").hidden=true;$("#viewimg").removeAttribute("src")},
   import(){openSheet("import")},pickfile(){$("#file").click()},
+  fy(d){ui.fy=Math.min(0,(ui.fy||0)+ +d.d);render()},
+  ctype(d){F.ctype=d.c;drawSheet()},cmode(d){F.countMode=d.m;drawSheet()},
+  upstmt(){$("#sfile").click()},addone(){closeSheet();newF(curBook());openSheet("tx");setTimeout(()=>{const i=$("#f-amount");i&&i.focus()},80)},
+  rvtoggle(d){const r=ui.sheet.st.rows[+d.i];r.on=!r.on;drawSheet()},
+  rvall(){const rs=ui.sheet.st.rows,on=!rs.every(r=>r.on||r.dup);rs.forEach(r=>{if(!r.dup)r.on=on});drawSheet()},
+  stmtpw(){const v=($("#st-pw")||{}).value||"";if(!v)return err("Enter the statement password.");handleStatement(ui.sheet.st.file,v)},
+  stmtadd(){addStatement()},
+  stmt(d){openSheet("stmtinfo",{sid:d.id})},
+  "stmtdel-yes"(){const b=curBook(),id=ui.sheet.sid;S.tx=S.tx.filter(t=>!(t.bookId===b.id&&t.stmt===id));b.statements=(b.statements||[]).filter(x=>x.id!==id);save();closeSheet();render();toast("Statement removed")},
   doimport(){const v=$("#imp").value;if(!v.trim())return err("Paste a code or choose a file first.");doImport(v)}
 };
 document.addEventListener("click",e=>{const el=e.target.closest("[data-a]");if(el&&!el.disabled&&A[el.dataset.a]){A[el.dataset.a](el.dataset);return}if(e.target===$("#scrim"))closeSheet()});
 document.addEventListener("input",e=>{const d=e.target.dataset;
   if(F&&d.f){if(F.filled&&F.filled[d.f]){delete F.filled[d.f];e.target.classList.remove("filled")}const p=d.f.split(".");if(p[1])F[p[0]][p[1]]=e.target.value;else F[d.f]=e.target.value;preview()}
-  if(B&&d.b)B[d.b]=e.target.value;if(B&&d.bm!==undefined)B.members[+d.bm].name=e.target.value});
+  if(B&&d.b){const p=d.b.split(".");if(p[1])B[p[0]][p[1]]=e.target.value;else B[d.b]=e.target.value}if(B&&d.bm!==undefined)B.members[+d.bm].name=e.target.value});
 document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(!$("#viewer").hidden)A.closeviewer();else if(ui.sheet)closeSheet()});
+$("#sfile").addEventListener("change",e=>{const f=e.target.files[0];e.target.value="";if(f)handleStatement(f)});
 ["cam","rfile"].forEach(id=>$("#"+id).addEventListener("change",e=>{const f=e.target.files[0];e.target.value="";if(f)handleFile(f)}));
 $("#file").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>doImport(r.result);r.readAsText(f);e.target.value=""});
 addEventListener("popstate",()=>{if(ui.sheet){closeSheet();if(ui.view!=="home")history.pushState({k:"book"},"");return}if(ui.view!=="home"){ui.view="home";render(true)}});
@@ -701,11 +771,193 @@ function scanBlock(){const b=curBook(),sc=F.scan,has=F.newReceipt||(F.receipt&&!
   if(!sc||sc.state!=="busy")h+=`<div class="scan-btns"><button type="button" data-a="cam">${ico(I.cam)}Retake</button><button type="button" data-a="upload">${ico(I.up)}Upload</button></div>`;
   return h+"</div>"}
 
+/* ---------- credit cards: rules ---------- */
+const CT={purchase:["Card purchase","Shops and restaurants (POS)"],online:["Online","Websites and apps"],qr:["QR payment","Bangla QR and other QR"],recharge:["Mobile recharge","Airtime and data"],
+  utility:["Utility bill","Electricity, gas, water, internet"],transfer:["Wallet or transfer","bKash, Nagad, fund transfer"],cash:["Cash withdrawal","ATM or cash advance"],emi:["EMI","Instalments"],fee:["Fee or interest","Annual fee, VAT, interest"]};
+const CT_DEFAULT={purchase:true,online:true,qr:true,recharge:true,utility:true,transfer:false,cash:false,emi:false,fee:false};
+function classify(desc){const d=" "+String(desc).toLowerCase()+" ";
+  if(/annual fee|renewal fee|\bfees?\b|interest|finance charge|late (payment )?charge|\bvat\b|excise|stamp duty|over ?limit|surcharge/.test(d))return"fee";
+  if(/\batm\b|cash (withdrawal|advance|adv)|cash wdl/.test(d))return"cash";
+  if(/\bemi\b|instal+ment|easy ?pay/.test(d))return"emi";
+  if(/\bqr\b|bangla ?qr|\bnqr\b|qr[- ]?pay/.test(d))return"qr";
+  if(/recharge|top ?-?up|airtime|flexiload|\bgp\b|grameen|\brobi\b|banglalink|airtel|teletalk/.test(d))return"recharge";
+  if(/desco|dpdc|wasa|titas|electric|palli bidyut|bpdb|\bpdb\b|nesco|wzpdcl|gas bill|broadband|internet bill|utility|\bbtcl\b|link3|carnival|amberit/.test(d))return"utility";
+  if(/bkash|nagad|rocket|upay|wallet|add money|fund ?transfer|\bnpsb\b|beftn|card ?to ?card|card2card|transfer/.test(d))return"transfer";
+  if(/www\.|\.com\b|\.net\b|online|e-?com|daraz|foodpanda|pathao|shohoz|chaldal|amazon|aliexpress|netflix|spotify|google|apple\.com|itunes|facebook|\bmeta\b|uber|steam|microsoft|openai|paypal|airbnb|agoda|youtube/.test(d))return"online";
+  return"purchase"}
+function guessCat(desc,ct){if(ct==="recharge"||ct==="utility")return"bills";if(ct==="fee"||ct==="cash"||ct==="transfer"||ct==="emi")return"other";const d=String(desc).toLowerCase();
+  if(/restaurant|restora|cafe|coffee|kitchen|food|biryani|pizza|burger|kfc|bakery|sweets|dine|chillox|\btea\b|juice|kabab|bistro|grill/.test(d))return"food";
+  if(/hotel|resort|\binn\b|lodge|airbnb|agoda|booking/.test(d))return"stay";
+  if(/pathao|uber|obhai|fuel|petrol|filling|\bcng\b|airline|airways|biman|us-bangla|novoair|shohoz|\bbus\b|rail|parking/.test(d))return"transport";
+  if(/pharma|medic|hospital|clinic|diagnostic/.test(d))return"health";
+  if(/cinema|cineplex|netflix|spotify|steam|game|youtube/.test(d))return"fun";
+  if(/shwapno|agora|meena|unimart|daraz|\bmart\b|shop|store|fashion|aarong|bazar|mall|apex|bata|chaldal|amazon|aliexpress/.test(d))return"shopping";
+  return"other"}
+function cardOf(b){const c=b.card||{};return{last4:c.last4||"",target:Math.max(1,+c.target||24),feeStart:/^\d{2}-\d{2}$/.test(c.feeStart||"")?c.feeStart:"01-01",minAmt:Math.max(0,+c.minAmt||0),fee:Math.max(0,+c.fee||0),rules:Object.assign({},CT_DEFAULT,c.rules||{})}}
+function verdict(t,c,cur){if(t.count===true)return{ok:true,why:"You marked this as counting"};if(t.count===false)return{ok:false,why:"You marked this as not counting"};
+  const ct=CT[t.ctype]?t.ctype:"purchase";if(!c.rules[ct])return{ok:false,why:CT[ct][0]+" doesn't count on this card"};
+  if(c.minAmt&&(+t.amount||0)<c.minAmt)return{ok:false,why:"Under the "+fmt(c.minAmt,cur)+" minimum"};return{ok:true,why:"Counts toward the fee waiver"}}
+const mkd=(y,m,d)=>`${y}-${String(m).padStart(2,"0")}-${String(Math.min(d,new Date(y,m,0).getDate())).padStart(2,"0")}`;
+const dayN=(a,b)=>Math.round((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/864e5);
+const longDate=s=>new Date(s+"T00:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+function feeYear(c,off){const [mm,dd]=c.feeStart.split("-").map(Number),t=today();let y=+t.slice(0,4);if(mkd(y,mm,dd)>t)y--;y+=off||0;return{start:mkd(y,mm,dd),end:addDays(mkd(y+1,mm,dd),-1)}}
+function monthsOf(fy){const out=[];let [y,m]=fy.start.split("-").map(Number);const [ey,em]=fy.end.split("-").map(Number);while(y<ey||(y===ey&&m<=em)){out.push(`${y}-${String(m).padStart(2,"0")}`);if(++m>12){m=1;y++}}return out}
+function cardStats(b,off){const c=cardOf(b),fy=feeYear(c,off),t=today(),list=txOf(b).filter(x=>x.kind!=="settle"&&x.date>=fy.start&&x.date<=fy.end);
+  const months=monthsOf(fy).map(ym=>({ym,cnt:0,not:0,amt:0})),mi={};months.forEach((m,i)=>mi[m.ym]=i);const types={};let count=0,spend=0;
+  list.forEach(x=>{const v=verdict(x,c,b.cur),m=months[mi[x.date.slice(0,7)]],a=+x.amount||0,k=CT[x.ctype]?x.ctype:"purchase";x._v=v;spend+=a;
+    if(v.ok)count++;if(m){m[v.ok?"cnt":"not"]++;m.amt+=a}const ty=types[k]=types[k]||{n:0,amt:0,ok:0};ty.n++;ty.amt+=a;if(v.ok)ty.ok++});
+  const total=dayN(fy.start,fy.end)+1,past=off<0||t>fy.end,elapsed=past?total:Math.max(0,Math.min(total,dayN(fy.start,t)+1)),expected=c.target*elapsed/total,
+    rem=Math.max(0,c.target-count),daysLeft=past?0:Math.max(0,dayN(t,fy.end)),done=count>=c.target;
+  const status=done?"done":past?"missed":count+.5>=expected?"ontrack":"behind",monthsLeft=Math.max(1,Math.ceil(daysLeft/30.4));
+  const line=done?(count>c.target?`Fee waiver reached, with ${count-c.target} to spare.`:"Fee waiver reached."):past?`Missed by ${rem}. The annual fee${c.fee?" of "+fmt(c.fee,b.cur):""} may apply.`
+    :`${rem} more by ${longDate(fy.end)}, about ${Math.ceil(rem/monthsLeft)} a month.`;
+  return{c,fy,list,months,types,count,spend,expected,rem,daysLeft,done,status,line,past}}
+
+/* ---------- credit cards: views ---------- */
+function cardView(b){const off=ui.fy||0,st=cardStats(b,off),c=st.c,list=st.list;
+  const pill={done:'<span class="pill ok">Done</span>',ontrack:'<span class="pill ok">On track</span>',behind:'<span class="pill bad">Behind</span>',missed:'<span class="pill bad">Missed</span>'}[st.status];
+  const paceAt=st.past||st.done?-1:Math.min(c.target-1,Math.floor(st.expected));
+  const head=`${topbar(b)}
+  <div class="monthnav"><button class="iconbtn" data-a="fy" data-d="-1" aria-label="Previous fee year">${ico(I.left)}</button><b class="num" style="font-size:1rem;text-align:center">${longDate(st.fy.start)} to ${longDate(st.fy.end)}</b><button class="iconbtn" data-a="fy" data-d="1" aria-label="Next fee year"${off>=0?" disabled style='opacity:.35'":""}>${ico(I.right)}</button></div>
+  <section class="totals"><span class="eyebrow">Qualifying transactions</span><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><b class="big num">${st.count} of ${c.target}</b>${pill}</div>
+    <div class="sub num"><span>${st.line}</span>${c.fee&&!st.past?`<span>Saves the ${fmt(c.fee,b.cur)} annual fee</span>`:""}</div></section>
+  <div class="card ruled"><div class="punch" role="img" aria-label="${st.count} of ${c.target} qualifying transactions${paceAt>=0?". By today you should have about "+Math.round(st.expected):""}">${Array.from({length:Math.min(c.target,120)},(_,i)=>`<i class="${i<st.count?"on":""}${i===paceAt?" pace":""}"></i>`).join("")}</div>
+    ${paceAt>=0?`<div class="pnote">The dashed circle is where you'd be at an even pace today.</div>`:""}</div>
+  <div class="tabs"><button aria-pressed="${ui.tab==="overview"}" data-a="tab" data-t="overview">Overview</button><button aria-pressed="${ui.tab==="log"}" data-a="tab" data-t="log">Transactions</button></div>`;
+  if(!list.length&&!(b.statements||[]).length)return head+`<div class="empty">No transactions in this fee year yet. Tap <b>Add</b> to upload a monthly statement (PDF, photo or CSV) or add one by hand.</div><button class="fab" data-a="addtx">+ Add</button>`;
+  let body;
+  if(ui.tab==="overview"){const ms=st.months,lab=ms.map(m=>new Date(m.ym+"-01T00:00:00").toLocaleDateString("en-GB",{month:"short"}));
+    ui.isoData.cmon={labels:lab,a:ms.map(m=>m.cnt),b:ms.map(m=>m.not)};
+    const tys=Object.entries(st.types).sort((x,y)=>y[1].amt-x[1].amt);
+    body=`<section><h2>Transactions each month</h2><div class="card pad"><div class="legend"><span><i style="background:var(--primary)"></i>Counts</span><span><i style="background:var(--line-strong)"></i>Doesn't count</span></div>
+      <canvas class="stack" data-stack="cmon" role="img" aria-label="Transactions each month: ${ms.map((m,i)=>monthLabel(m.ym)+" "+m.cnt+" counted, "+m.not+" not counted").join("; ")}"></canvas></div></section>
+    ${isoCard("camt","Spending each month",ms.map(m=>m.amt),lab)}
+    ${tys.length?`<section><h2>By transaction type</h2><div class="card ruled">${tys.map(([k,v])=>`<div class="trow"><span><b>${CT[k][0]}</b></span><span class="meta num">${v.n} ${v.n===1?"transaction":"transactions"}, ${fmt(v.amt,b.cur)}${v.ok&&v.ok<v.n?`, ${v.ok} counted`:""}</span><span class="pill ${c.rules[k]?"ok":"wait"}">${c.rules[k]?"Counts":"Doesn't count"}</span></div>`).join("")}</div></section>`:""}
+    ${list.length?`<section><h2>Where it went</h2>${catBlock(list,b.cur)}</section>`:""}
+    ${(b.statements||[]).length?`<section><h2>Statements</h2><div class="card ruled">${b.statements.slice().sort((x,y)=>(y.to||"").localeCompare(x.to||"")).map(x=>`<button class="tx" data-a="stmt" data-id="${esc(x.id)}">${ico(I.file)}<span class="d">${x.to?"To "+longDate(x.to):"Statement"}</span><span class="a num">${fmt(x.total,b.cur)}</span><span class="s">${x.count} ${x.count===1?"transaction":"transactions"}${x.file?", "+esc(x.file):""}</span></button>`).join("")}</div></section>`:""}`}
+  else{const kinds=["All","yes","no",...Object.keys(CT).filter(k=>st.types[k])];if(!kinds.includes(ui.filter))ui.filter="All";
+    const shown=list.filter(x=>ui.filter==="All"||(ui.filter==="yes"?x._v.ok:ui.filter==="no"?!x._v.ok:(x.ctype||"purchase")===ui.filter));
+    const g={};shown.forEach(x=>(g[x.date.slice(0,7)]=g[x.date.slice(0,7)]||[]).push(x));
+    body=`<div class="chips">${kinds.map(k=>`<button class="chip" aria-pressed="${k===ui.filter}" data-a="filter" data-c="${k}">${k==="All"?"All":k==="yes"?"Counts":k==="no"?"Doesn't count":CT[k][0]}</button>`).join("")}</div>
+    ${Object.keys(g).sort().reverse().map(ym=>{const it=g[ym].sort((x,y)=>y.date.localeCompare(x.date)||(y.created||0)-(x.created||0)),ok=it.filter(x=>x._v.ok).length;
+      return `<div class="card ruled"><div class="day-head"><span>${monthLabel(ym)}</span><span class="num">${ok} of ${it.length} count</span></div>${it.map(x=>`<button class="tx" data-a="edittx" data-id="${esc(x.id)}">${catIco(x.cat)}<span class="d">${esc(x.desc)}</span><span class="a num">${fmt(x.amount,b.cur)}</span><span class="s">${new Date(x.date+"T00:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short"})}, ${CT[x.ctype||"purchase"][0]}. <span class="${x._v.ok?"yes":"no"}">${x._v.ok?"Counts":x._v.why}</span>${x.receipt?CLIP:""}</span></button>`).join("")}</div>`}).join("")
+      ||'<div class="empty">Nothing matches this filter in this fee year.</div>'}`}
+  return head+body+'<button class="fab" data-a="addtx">+ Add</button>'}
+function cardFields(b){const c=cardOf(b),v=verdict({ctype:F.ctype,amount:parseFloat(F.amount)||0,count:F.countMode==="auto"?undefined:F.countMode==="yes"},c,b.cur);
+  return `<div class="f">Transaction type<div class="chips">${Object.keys(CT).map(k=>`<button type="button" class="chip" data-a="ctype" data-c="${k}" aria-pressed="${F.ctype===k}">${CT[k][0]}</button>`).join("")}</div></div>
+  <div class="f">Counts toward the fee waiver?<div class="seg"><button data-a="cmode" data-m="auto" aria-pressed="${F.countMode==="auto"}">Card rules</button><button data-a="cmode" data-m="yes" aria-pressed="${F.countMode==="yes"}">Yes</button><button data-a="cmode" data-m="no" aria-pressed="${F.countMode==="no"}">No</button></div>
+    <span class="${v.ok?"yes":"no"}" style="font-size:.95rem">${v.ok?"This counts toward the waiver.":v.why+"."}</span></div>`}
+function cardRulesFields(){const r=B.card.rules;
+  return `<div class="grid2"><label class="f">Transactions needed<input id="b-target" class="num" data-b="card.target" type="number" inputmode="numeric" min="1" max="365" value="${esc(B.card.target)}"></label>
+    <label class="f">Fee year starts<input id="b-fee-date" data-b="card.feeDate" type="date" value="${esc(B.card.feeDate)}"></label></div>
+  <div class="grid2"><label class="f">Minimum per transaction (optional)<input id="b-min" class="num" data-b="card.minAmt" type="number" inputmode="decimal" min="0" placeholder="0" value="${esc(B.card.minAmt)}"></label>
+    <label class="f">Annual fee (optional)<input id="b-fee" class="num" data-b="card.fee" type="number" inputmode="decimal" min="0" placeholder="0" value="${esc(B.card.fee)}"></label></div>
+  <div class="f">Which transactions count toward the waiver?<span style="font-weight:400">Tap to switch each type on or off. Set these from your bank's current terms, since every card is different.</span>
+    ${pick(Object.keys(CT).map(k=>({id:k,name:CT[k][0]})),Object.keys(CT).filter(k=>r[k]),"crule")}</div>`}
+function cardAddSheet(){const o=(a,i,t,d)=>`<button class="opt" data-a="${a}">${ico(i)}<span><b>${t}</b><span>${d}</span></span></button>`;
+  return head("Add to "+esc(curBook().name))+o("upstmt",I.up,"Upload a monthly statement","PDF, photo or CSV. You check the list before anything is added.")+o("addone",I.plus,"Add one transaction","Type in a single purchase yourself")}
+function stmtInfoSheet(){const b=curBook(),x=(b.statements||[]).find(s=>s.id===ui.sheet.sid);if(!x)return head("Statement")+"<p>This statement was removed.</p>";const n=txOf(b).filter(t=>t.stmt===x.id).length;
+  return head("Statement")+`<div class="preview num"><div class="r"><span>Transactions</span><b>${x.from?longDate(x.from)+" to "+longDate(x.to):"Dates not found"}</b></div><div class="r"><span>Added</span><b>${n} ${n===1?"transaction":"transactions"}, ${fmt(x.total,b.cur)}</b></div>${x.file?`<div class="r"><span>File</span><b>${esc(x.file)}</b></div>`:""}</div>
+    ${ui.sheet.confirm?`<div class="confirm">Remove this statement and its ${n} ${n===1?"transaction":"transactions"}?<div class="actions"><button class="btn danger" style="flex:1" data-a="stmtdel-yes">Remove</button><button class="btn" data-a="noconfirm">Keep</button></div></div>`:`<div class="actions"><button class="btn danger" data-a="confirm" style="flex:1">Remove statement</button></div>`}`}
+
+/* ---------- credit cards: reading statements ---------- */
+const STMT={tok:0};
+function parseStatement(text){const MON={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12},MR="(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?";
+  const lines=String(text||"").replace(/[০-৯]/g,d=>"০১২৩৪৫৬৭৮৯".indexOf(d)).split(/\r?\n/).map(l=>l.replace(/\s+/g," ").trim()).filter(Boolean);
+  const lead=l=>{let m;
+    if(m=l.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?!\d)\s*/))return{y:+m[1],mo:+m[2],d:+m[3],rest:l.slice(m[0].length)};
+    if(m=l.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4}|\d{2})(?!\d)\s*/))return{y:+m[3],mo:+m[2],d:+m[1],rest:l.slice(m[0].length)};
+    if(m=l.match(new RegExp("^(\\d{1,2})[\\s\\-/.]?"+MR+"(?:[\\s\\-/.,']+(\\d{4}|\\d{2})(?!\\d))?\\s*","i")))return{y:m[3]?+m[3]:null,mo:MON[m[2].toLowerCase()],d:+m[1],rest:l.slice(m[0].length)};
+    if(m=l.match(new RegExp("^"+MR+"[\\s\\-]?(\\d{1,2})(?:,?\\s+(\\d{4}))?(?!\\d)\\s*","i")))return{y:m[3]?+m[3]:null,mo:MON[m[1].toLowerCase()],d:+m[2],rest:l.slice(m[0].length)};
+    return null};
+  const AMT=/\s*(\(?-?(?:\d{1,3}(?:,\d{2,3})+|\d+)\.\d{2}\)?)(\s*(?:cr|dr|c|d)\b\.?)?\s*$/i,CUR=/\s*\b(bdt|tk|taka|usd|eur|gbp|inr|aed|sgd|myr|thb)\.?\s*$/i;
+  const SKIP=/^(previous|opening|closing|new|outstanding)\s+balance|^total|^sub ?total|minimum (amount|payment)|statement (date|period)|payment due|credit limit|available (credit|limit)|reward point|^balance\b/i;
+  const CREDIT=/payment (received|thank)|thank you|^payment\b|\bpayment\s*-|refund|reversal|reversed|cash ?back|credit adj|chargeback|^repayment/i;
+  const raw=[];let credits=0,last=-2,pend=null;
+  const emit=(a,text,i)=>{let rest=text.replace(CUR,""),m=rest.match(AMT);if(!m)return false;
+    const tok=m[1],cr=/^c/i.test((m[2]||"").trim())||/^\(|^-/.test(tok),amount=parseFloat(tok.replace(/[(),-]/g,""));
+    rest=rest.slice(0,rest.length-m[0].length);for(let k=0;k<3;k++){rest=rest.replace(CUR,"");const n=rest.match(AMT);if(!n)break;rest=rest.slice(0,rest.length-n[0].length)}
+    const desc=rest.replace(CUR,"").replace(/\b(x{2,}|\*{2,})\d{2,4}\b/gi,"").replace(/\s+/g," ").trim();last=i;
+    if(!(amount>0&&amount<1e8)||!a.mo||a.mo>12||!a.d||a.d>31||!desc||SKIP.test(desc))return true;
+    if(cr||CREDIT.test(desc)){credits++;return true}
+    raw.push({y:a.y,mo:a.mo,d:a.d,desc:desc.slice(0,120),amount});return true};
+  lines.forEach((l,i)=>{const a=lead(l);
+    if(!a){if(pend&&pend.i===i-1&&!SKIP.test(l)){if(emit(pend.a,pend.text+" "+l,i)){pend=null;return}pend.text+=" "+l;pend.i=i;if(pend.text.length>160)pend=null;return}
+      if(raw.length&&last===i-1&&!AMT.test(l)&&l.length<60&&!SKIP.test(l)){const r=raw[raw.length-1];if(r.desc.length<100)r.desc+=" "+l;last=i}return}
+    const b2=lead(a.rest);if(b2&&b2.mo)a.rest=b2.rest;pend=null;
+    if(!emit(a,a.rest,i))pend={a,text:a.rest,i}});
+  const ys=raw.filter(r=>r.y).map(r=>r.y<100?r.y+2000:r.y),cnt={};ys.forEach(y=>cnt[y]=(cnt[y]||0)+1);
+  let defY=+Object.keys(cnt).sort((p,q)=>cnt[q]-cnt[p])[0]||0;if(!defY){const t=String(text).match(/\b20\d{2}\b/g)||[],c2={};t.forEach(y=>c2[y]=(c2[y]||0)+1);defY=+Object.keys(c2).sort((p,q)=>c2[q]-c2[p])[0]||+today().slice(0,4)}
+  const t=today(),rows=raw.map(r=>{let y=r.y?(r.y<100?r.y+2000:r.y):defY,date=mkd(y,r.mo,r.d);if(!r.y&&date>addDays(t,1))date=mkd(y-1,r.mo,r.d);return{date,desc:r.desc,amount:Math.round(r.amount*100)/100}})
+    .filter(r=>r.date<=addDays(t,1));
+  const ds=rows.map(r=>r.date).sort();return{rows,credits,from:ds[0]||"",to:ds[ds.length-1]||""}}
+const csvLines=t=>String(t).split(/\r?\n/).map(l=>{const out=[];let cur="",q=false;for(const ch of l){if(ch==='"')q=!q;else if((ch===","||ch===";"||ch==="\t")&&!q){out.push(cur);cur=""}else cur+=ch}out.push(cur);
+  const cells=out.map(c=>c.trim()).filter(Boolean),di=cells.findIndex(c=>/^\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}$|^\d{1,2}[\s-][a-z]{3}/i.test(c));if(di>0)cells.unshift(cells.splice(di,1)[0]);
+  const ai=cells.map((c,i)=>/^\(?-?[\d,]+\.\d{2}\)?(\s*(cr|dr))?$/i.test(c)?i:-1).filter(i=>i>=0).pop();if(ai!=null&&ai<cells.length-1)cells.push(cells.splice(ai,1)[0]);return cells.join(" ")}).join("\n");
+async function handleStatement(file,pw){const b=curBook();if(!b||b.type!=="card")return;const tok=++STMT.tok,alive=()=>ui.sheet&&ui.sheet.type==="stmt"&&STMT.tok===tok;
+  const set=(p,msg)=>{if(!alive())return;ui.sheet.st=Object.assign(ui.sheet.st||{},{state:"busy",progress:p,msg,file});const bar=$("#scanbar"),m=$("#scanmsg");if(bar&&m){bar.style.width=Math.round(p*100)+"%";m.textContent=msg}else drawSheet()};
+  if(!ui.sheet||ui.sheet.type!=="stmt"||ui.sheet.st.file!==file){ui.sheet={type:"stmt",st:{state:"busy",progress:.02,msg:"Opening the statement…",file}};drawSheet();$("#scrim").hidden=false}
+  set(.03,"Opening the statement…");
+  try{const name=file.name||"",pdf=/pdf/i.test(file.type)||/\.pdf$/i.test(name),img=/^image\//.test(file.type);let text="";
+    if(file.size>40e6)throw new Error("too big");
+    if(pdf){if(!window.pdfjsLib)await loadScript(PDFJS);pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_W;
+      if(!ui.sheet.st.buf)ui.sheet.st.buf=new Uint8Array(await file.arrayBuffer());
+      let doc;try{doc=await pdfjsLib.getDocument({data:ui.sheet.st.buf.slice(),password:pw||undefined}).promise}
+      catch(e){if(e&&e.name==="PasswordException"){if(!alive())return;ui.sheet.st=Object.assign(ui.sheet.st,{state:"pw",pwErr:pw?"That password didn't open it. Check it and try again.":""});drawSheet();setTimeout(()=>{const i=$("#st-pw");i&&i.focus()},60);return}throw e}
+      const N=Math.min(doc.numPages,40);for(let i=1;i<=N;i++){set(.05+.4*i/N,"Reading page "+i+" of "+N+"…");text+=pdfText(await (await doc.getPage(i)).getTextContent())+"\n"}
+      if(text.replace(/\s/g,"").length<60){if(IN_ARTIFACT)throw new Error("artifact-ocr");const P=Math.min(doc.numPages,6);text="";
+        OCR.cb=m=>{if(m.status==="recognizing text")set(.2+.75*(+m.progress||0),"Reading scanned pages…")};if(!window.Tesseract)await loadScript(TESS);const w=await ocrWorker();
+        for(let i=1;i<=P;i++){const page=await doc.getPage(i),v0=page.getViewport({scale:1}),vp=page.getViewport({scale:Math.min(3,1800/v0.width)}),cv=document.createElement("canvas");cv.width=vp.width;cv.height=vp.height;
+          const cx=cv.getContext("2d");cx.fillStyle="#fff";cx.fillRect(0,0,cv.width,cv.height);await page.render({canvasContext:cx,viewport:vp}).promise;set(.2+.75*(i-1)/P,"Reading scanned page "+i+" of "+P+"…");text+=((await w.recognize(cv)).data.text||"")+"\n"}OCR.cb=null}}
+    else if(img){if(IN_ARTIFACT)throw new Error("artifact-ocr");const cv=await imgCanvas(file);OCR.cb=m=>{if(m.status==="recognizing text")set(.15+.8*(+m.progress||0),"Reading the photo… "+Math.round((+m.progress||0)*100)+"%");else set(.05,"Loading the reader (first time needs internet)…")};
+      if(!window.Tesseract)await loadScript(TESS);const w=await ocrWorker();text=(await w.recognize(cv)).data.text||"";OCR.cb=null}
+    else text=csvLines(await file.text());
+    if(!alive())return;const r=parseStatement(text),have=new Set(txOf(b).map(x=>x.date+"|"+(+x.amount).toFixed(2)+"|"+x.desc.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,12)));
+    const rows=r.rows.map(x=>{const ct=classify(x.desc),dup=have.has(x.date+"|"+x.amount.toFixed(2)+"|"+x.desc.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,12));return Object.assign(x,{ctype:ct,cat:guessCat(x.desc,ct),dup,on:!dup})});
+    ui.sheet.st={state:rows.length?"review":"error",file,rows,credits:r.credits,from:r.from,to:r.to,msg:rows.length?"":"No transactions were found in this file. Statements with a date at the start of each line and the amount at the end work best. A text PDF from the bank works better than a photo."};
+    drawSheet()}
+  catch(e){OCR.cb=null;if(!alive())return;const m=String(e&&e.message||e);
+    ui.sheet.st={state:"error",file,msg:m==="too big"?"That file is over 40 MB.":m==="artifact-ocr"?"Reading photos and scanned PDFs works in the installed app. Text PDFs and CSV files work here.":/load|fetch|network|script|import|wasm|failed/i.test(m)?"Couldn't load the statement reader. Connect to the internet once, then it works offline.":"Couldn't read this file. If it's a PDF, try downloading it again from the bank. You can also export a CSV from internet banking."};drawSheet()}}
+function stmtSheet(){const st=ui.sheet.st||{},b=curBook(),c=cardOf(b);let h=head(st.state==="review"?"Check the transactions":"Upload a statement");
+  if(st.state==="busy")return h+`<div class="scan"><div class="found"><span id="scanmsg">${esc(st.msg||"Working…")}</span><div class="prog"><i id="scanbar" style="width:${Math.round((st.progress||0)*100)}%"></i></div></div></div>`;
+  if(st.state==="pw")return h+`<p style="margin:0">This statement is password protected. Banks often use part of your date of birth or card number. The password is used only on this phone and isn't saved.</p>
+    <label class="f">Statement password<input id="st-pw" type="password" autocomplete="off" enterkeyhint="go"></label><div class="err" id="err" role="alert">${esc(st.pwErr||"")}</div>
+    <div class="actions"><button class="btn primary" data-a="stmtpw">Open statement</button></div>`;
+  if(st.state==="error")return h+`<p class="neg" style="margin:0">${esc(st.msg)}</p><div class="actions"><button class="btn primary" data-a="upstmt">Choose another file</button></div>`;
+  const on=st.rows.filter(r=>r.on),dups=st.rows.filter(r=>r.dup).length,sum=on.reduce((a,r)=>a+r.amount,0),cnt=on.filter(r=>verdict(r,c,b.cur).ok).length;
+  h+=`<div class="preview num"><div class="r"><span>Dates</span><b>${longDate(st.from)} to ${longDate(st.to)}</b></div><div class="r"><span>Selected</span><b>${on.length} for ${fmt(sum,b.cur)}</b></div><div class="r"><span>Count toward the waiver</span><b>${cnt}</b></div>
+    ${st.credits?`<div class="r muted"><span>Payments and refunds skipped</span><b>${st.credits}</b></div>`:""}${dups?`<div class="r muted"><span>Already in this card, not selected</span><b>${dups}</b></div>`:""}</div>
+  <p class="muted" style="margin:0;font-size:.92rem">Untick anything that isn't a purchase. You can change a transaction's type later.</p>
+  <button type="button" class="link" data-a="rvall" style="align-self:flex-start">${st.rows.every(r=>r.on||r.dup)?"Untick all":"Tick all"}</button>
+  <div class="rvlist">${st.rows.map((r,i)=>{const v=verdict(r,c,b.cur);return `<button type="button" class="rv" data-a="rvtoggle" data-i="${i}" aria-pressed="${r.on}"><span class="box">${ico("M5 12l5 5 9-10")}</span><span class="d">${esc(r.desc)}</span><span class="a num">${fmt(r.amount,b.cur)}</span>
+    <span class="s">${new Date(r.date+"T00:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short"})}, ${CT[r.ctype][0]}. <span class="${v.ok?"yes":"no"}">${v.ok?"Counts":v.why}</span>${r.dup?". Already added":""}</span></button>`}).join("")}</div>
+  <div class="err" id="err" role="alert"></div><div class="actions"><button class="btn primary" data-a="stmtadd"${on.length?"":" disabled"}>Add ${on.length} ${on.length===1?"transaction":"transactions"}</button></div>`;
+  return h}
+function addStatement(){const b=curBook(),st=ui.sheet.st,on=st.rows.filter(r=>r.on);if(!on.length)return;const id="s"+uid(),now=Date.now();
+  on.forEach((r,i)=>S.tx.push({id:uid(),bookId:b.id,kind:"expense",amount:r.amount,desc:r.desc,cat:r.cat,ctype:r.ctype,date:r.date,note:"",stmt:id,created:now+i}));
+  b.statements=(b.statements||[]).concat([{id,file:(st.file&&st.file.name||"").slice(0,120),from:st.from,to:st.to,count:on.length,total:Math.round(on.reduce((a,r)=>a+r.amount,0)*100)/100,added:now}]);
+  save();closeSheet();ui.tab="overview";render();toast(`Added ${on.length} ${on.length===1?"transaction":"transactions"}`,true)}
+
+/* ---------- credit cards: chart ---------- */
+function stackBars(c,labels,a,bb,still){const w=c.clientWidth,h=c.clientHeight;if(!w)return;const dpr=Math.min(devicePixelRatio||1,2);c.width=Math.round(w*dpr);c.height=Math.round(h*dpr);
+  const x=c.getContext("2d"),cs=getComputedStyle(c),v=n=>cs.getPropertyValue(n).trim(),P=v("--primary"),G=v("--line-strong"),fg=v("--fg"),mu=v("--muted"),ln=v("--rule");
+  const n=labels.length,max=Math.max(1,...a.map((q,i)=>q+bb[i])),pad=4,step=(w-pad*2)/n,bw=Math.min(step*.62,34),base=h-24,H=base-22,t0=performance.now();
+  function frame(now){const k=RM||still?1:Math.min(1,(now-t0)/700),e=1-Math.pow(1-k,3);x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,w,h);
+    x.strokeStyle=ln;x.lineWidth=1;for(let g=0;g<=2;g++){const y=Math.round(base-H*g/2)+.5;x.beginPath();x.moveTo(pad,y);x.lineTo(w-pad,y);x.stroke()}
+    x.font="600 12px "+cs.fontFamily;x.textAlign="center";
+    labels.forEach((l,i)=>{const bx=pad+i*step+(step-bw)/2,ha=a[i]/max*H*e,hb=bb[i]/max*H*e;
+      if(a[i]){x.fillStyle=P;x.beginPath();x.roundRect?x.roundRect(bx,base-ha,bw,ha,hb?0:[4,4,0,0]):x.rect(bx,base-ha,bw,ha);x.fill()}
+      if(bb[i]){x.fillStyle=G;x.beginPath();x.roundRect?x.roundRect(bx,base-ha-hb,bw,hb,[4,4,0,0]):x.rect(bx,base-ha-hb,bw,hb);x.fill()}
+      if(k===1&&(a[i]||bb[i])){x.fillStyle=fg;x.fillText(String(a[i]),bx+bw/2,base-ha-hb-6)}
+      if(step>=26||i%2===0){x.fillStyle=mu;x.fillText(l,bx+bw/2,base+16)}});
+    if(k<1&&c.isConnected)requestAnimationFrame(frame)}
+  requestAnimationFrame(frame)}
+
 /* ---------- start ---------- */
-S=load()||(window.__SEED__?JSON.parse(JSON.stringify(window.__SEED__)):demo());
+S=load();if(!S){S=window.__SEED__?JSON.parse(JSON.stringify(window.__SEED__)):demo();const dc=demoCard();S.books.push(dc.book);S.tx.push(...dc.tx)}
 render(true);
 if(!RM)requestAnimationFrame(loop);
-let lastW=innerWidth;addEventListener("resize",()=>{if(innerWidth===lastW)return;lastW=innerWidth;document.querySelectorAll("canvas[data-iso]").forEach(c=>{const d=ui.isoData[c.dataset.iso];if(d)iso(c,d.vals,d.labels,true)});drawGlobe(performance.now())});
+let lastW=innerWidth;addEventListener("resize",()=>{if(innerWidth===lastW)return;lastW=innerWidth;drawCharts(true);drawGlobe(performance.now())});
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{G.col=null;render()});
 if("serviceWorker" in navigator&&!IN_ARTIFACT&&(location.protocol==="https:"||location.hostname==="localhost"))navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
