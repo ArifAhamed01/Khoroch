@@ -63,6 +63,6 @@ The people inside a trip (like "Arif & Gemi") are only names for splitting costs
 
 - **Offline:** changes save on the phone first and upload when you're back online. Two people editing the same entry at the same time: the last save wins.
 - **Bill photos don't sync.** They stay on the phone that took them.
-- **Signing out** removes synced khatas from that device. They stay in your account and come back when you sign in again.
+- **Signing out** keeps every khata on that device, including ones made on other devices, and they keep working offline. Changes made while signed out upload the next time you sign in.
 - **Free plan limits** (50,000 reads and 20,000 writes a day) are far above what one person or a travel group uses.
 - **Optional extra safety:** in [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials), open the "Browser key" Firebase created and restrict it to your site under **Website restrictions**, for example `https://arifahamed01.github.io/*`.

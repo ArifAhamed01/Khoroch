@@ -1301,8 +1301,8 @@ async function fbAdapter(cfg){if(window.__FBMOCK__)return window.__FBMOCK__(cfg)
     signIn:(e,p)=>auth.signInWithEmailAndPassword(e,p),
     signUp:async(e,p,n)=>{const r=await auth.createUserWithEmailAndPassword(e,p);await r.user.updateProfile({displayName:n});SYNC.user=me(auth.currentUser);return r},
     reset:e=>auth.sendPasswordResetEmail(e),signOut:()=>auth.signOut(),
-    watchBooks:(uid,cb,er)=>db.collection("books").where("members","array-contains",uid).onSnapshot(s=>cb(s.docs.map(d=>({id:d.id,data:d.data()})),s.metadata.fromCache),er),
-    watchTx:(bid,cb,er)=>bref(bid).collection("tx").onSnapshot(s=>cb(s.docChanges().map(c=>({type:c.type,id:c.doc.id,data:c.doc.data()})),s.metadata.fromCache),er),
+    watchBooks:(uid,cb,er)=>db.collection("books").where("members","array-contains",uid).onSnapshot({includeMetadataChanges:true},s=>cb(s.docs.map(d=>({id:d.id,data:d.data()})),s.metadata.fromCache),er),
+    watchTx:(bid,cb,er)=>bref(bid).collection("tx").onSnapshot({includeMetadataChanges:true},s=>cb(s.docChanges().map(c=>({type:c.type,id:c.doc.id,data:c.doc.data()})),s.metadata.fromCache),er),
     createBook:(id,uid,name,data)=>bref(id).set({owner:uid,members:[uid],names:{[uid]:name},data,updatedAt:ts()}),
     updateBook:(id,data)=>bref(id).update({data,updatedAt:ts()}),
     deleteBook:id=>bref(id).delete(),
@@ -1340,7 +1340,7 @@ function acctSheet(){const sh=ui.sheet,busy=sh.busy?" disabled":"";
     return head("Account")+`<div class="preview"><div class="r"><span>Name</span><b>${esc(u.name)}</b></div>${u.email?`<div class="r"><span>Email</span><b style="overflow-wrap:anywhere">${esc(u.email)}</b></div>`:""}<div class="r"><span>Synced khatas</span><b class="num">${n}</b></div></div>
       <div>${syncBar().replace(/^<button class="syncbar"[^>]*>/,'<div class="syncbar" style="cursor:default">').replace(/<\/button>$/,"</div>")}</div>
       <p class="muted" style="margin:0;font-size:.92rem">Bill photos stay on the phone they were taken on and don't sync.</p>
-      ${sh.confirm?`<div class="confirm">Sign out? Synced khatas will be removed from this device. They stay in your account, and come back when you sign in again.<div class="actions"><button class="btn danger" style="flex:1" data-a="signout-yes">Sign out</button><button class="btn" data-a="noconfirm">Stay signed in</button></div></div>`
+      ${sh.confirm?`<div class="confirm">Sign out? Your khatas stay on this phone and keep working offline. Changes you make while signed out upload the next time you sign in.<div class="actions"><button class="btn danger" style="flex:1" data-a="signout-yes">Sign out</button><button class="btn" data-a="noconfirm">Stay signed in</button></div></div>`
         :`<div class="actions"><button class="btn danger" style="flex:1" data-a="signout">Sign out</button></div>`}`}
   const up=sh.mode==="up";
   return head(up?"Create an account":"Sign in")+`${SYNC.join?`<div class="note">Sign in to join the shared trip you were invited to.</div>`:""}
@@ -1368,28 +1368,30 @@ function signedIn(u){stopSync(true);SYNC.user=u;SYNC.shadow=loadShadow(u.uid);SY
   if(ui.sheet&&ui.sheet.type==="acct"){closeSheet();toast("Signed in as "+u.name)}
   SYNC.unsubB=SYNC.fb.watchBooks(u.uid,onBooks,onErr);if(SYNC.join)doJoin()}
 function stopSync(keepUser){if(SYNC.unsubB)SYNC.unsubB();SYNC.unsubB=null;Object.values(SYNC.unsubT).forEach(f=>f());SYNC.unsubT={};SYNC.ready=false;if(!keepUser){SYNC.user=null;setSync("off")}}
-async function signOutNow(){const ids=new Set(Object.keys(SYNC.shadow.books));saveShadow();
-  S.tx=S.tx.filter(t=>!ids.has(t.bookId));S.books=S.books.filter(b=>!ids.has(b.id));stopSync();quietSave();try{await SYNC.fb.signOut()}catch(e){}closeSheet();ui.view="home";render(true);toast("Signed out")}
+async function signOutNow(){saveShadow();stopSync();quietSave();try{await SYNC.fb.signOut()}catch(e){}closeSheet();ui.view="home";render(true);toast("Signed out")}
 function readJoin(){const m=location.hash.match(/^#join=([\w-]+)\.([\w-]+)$/);if(!m)return false;SYNC.join={bid:m[1],code:m[2]};history.replaceState(null,"",location.pathname+location.search);return true}
 function doJoin(){const j=SYNC.join;SYNC.join=null;if(!j||!SYNC.user)return;
   SYNC.fb.join(j.bid,SYNC.user.uid,SYNC.user.name,j.code).then(()=>{SYNC.openAfter=j.bid;toast("Joined. Loading the trip…")},()=>toast("This invite link doesn't work any more. Ask for a new one."))}
 function onBooks(list,fromCache){const uid=SYNC.user&&SYNC.user.uid;if(!uid)return;const ids=new Set();
   list.forEach(({id,data})=>{const d=data.data||{};if(!d.type)return;ids.add(id);if(!fromCache)SYNC.seenB.add(id);SYNC.meta[id]={owner:data.owner,members:data.members||[],names:data.names||{},invite:data.invite||null};
-    const nb=Object.assign({},d,{id,members:d.members||[],cloud:SYNC.meta[id]}),i=S.books.findIndex(b=>b.id===id);if(i>=0)S.books[i]=nb;else S.books.push(nb);
-    SYNC.shadow.books[id]=JSON.stringify(bookData(nb));if(!SYNC.unsubT[id])SYNC.unsubT[id]=SYNC.fb.watchTx(id,(ch,fc)=>onTx(id,ch,fc),onErr)});
+    const nb=Object.assign({},d,{id,members:d.members||[],cloud:SYNC.meta[id]}),i=S.books.findIndex(b=>b.id===id),inc=JSON.stringify(bookData(nb));
+    if(i>=0&&SYNC.shadow.books[id]&&JSON.stringify(bookData(S.books[i]))!==SYNC.shadow.books[id]&&inc===SYNC.shadow.books[id])S.books[i].cloud=SYNC.meta[id];
+    else{if(i>=0)S.books[i]=nb;else S.books.push(nb);SYNC.shadow.books[id]=inc}if(!SYNC.unsubT[id])SYNC.unsubT[id]=SYNC.fb.watchTx(id,(ch,fc)=>onTx(id,ch,fc),onErr)});
   if(!fromCache)S.books.slice().forEach(b=>{if(!ids.has(b.id)&&SYNC.shadow.books[b.id]&&(SYNC.baseB.has(b.id)||SYNC.seenB.has(b.id))){S.books=S.books.filter(x=>x.id!==b.id);S.tx=S.tx.filter(t=>t.bookId!==b.id);delete SYNC.shadow.books[b.id];
     if(SYNC.unsubT[b.id]){SYNC.unsubT[b.id]();delete SYNC.unsubT[b.id]}if(ui.bookId===b.id&&ui.view!=="home"){ui.view="home";toast("You no longer have access to "+b.name)}}});
   if(!fromCache)SYNC.ready=true;quietSave();saveShadow();push();
   if(SYNC.openAfter&&ids.has(SYNC.openAfter)){const id=SYNC.openAfter;SYNC.openAfter=null;A.open({id})}else renderSoon()}
 function onTx(bid,changes,fromCache){const seen=SYNC.txSeen[bid]||(SYNC.txSeen[bid]=new Set());
   changes.forEach(c=>{seen.add(c.id);if(c.type==="removed"||c.data.deleted){S.tx=S.tx.filter(t=>t.id!==c.id);SYNC.shadow.tx[c.id]="-";return}
-    const t=Object.assign({},c.data,{id:c.id,bookId:bid});delete t.updatedAt;delete t.deleted;const i=S.tx.findIndex(x=>x.id===c.id);if(i>=0)S.tx[i]=t;else S.tx.push(t);SYNC.shadow.tx[c.id]=JSON.stringify(txData(t))});
+    const t=Object.assign({},c.data,{id:c.id,bookId:bid});delete t.updatedAt;delete t.deleted;const i=S.tx.findIndex(x=>x.id===c.id),inc=JSON.stringify(txData(t)),sh=SYNC.shadow.tx[c.id];
+    if(i>=0&&sh&&sh!=="-"&&JSON.stringify(txData(S.tx[i]))!==sh&&inc===sh)return;
+    if(i>=0)S.tx[i]=t;else S.tx.push(t);SYNC.shadow.tx[c.id]=inc});
   if(!fromCache&&!seen.server){seen.server=true;S.tx=S.tx.filter(t=>!(t.bookId===bid&&!seen.has(t.id)&&SYNC.baseT.has(t.id)&&SYNC.shadow.tx[t.id]&&SYNC.shadow.tx[t.id]!=="-"))}
   quietSave();saveShadow();syncSoon();renderSoon()}
 function push(){if(!SYNC.user||!SYNC.fb)return;const uid=SYNC.user.uid,fb=SYNC.fb,sh=SYNC.shadow,early=!SYNC.ready,cr=[],ops=[],sep=[];
   // before the server's list arrives, only touch khatas the server already has: no creating or deleting yet
   S.books.forEach(b=>{if(b.sample)return;const d=bookData(b),j=JSON.stringify(d);
-    if(!sh.books[b.id]){if(early)return;cr.push({k:"create",id:b.id,uid,name:SYNC.user.name,data:d});b.cloud=SYNC.meta[b.id]={owner:uid,members:[uid],names:{[uid]:SYNC.user.name},invite:null};if(!SYNC.unsubT[b.id])SYNC.unsubT[b.id]=fb.watchTx(b.id,(ch,fc)=>onTx(b.id,ch,fc),onErr)}
+    if(!sh.books[b.id]){if(early||(b.cloud&&b.cloud.owner&&b.cloud.owner!==uid&&!(b.cloud.members||[]).includes(uid)))return;cr.push({k:"create",id:b.id,uid,name:SYNC.user.name,data:d});b.cloud=SYNC.meta[b.id]={owner:uid,members:[uid],names:{[uid]:SYNC.user.name},invite:null};if(!SYNC.unsubT[b.id])SYNC.unsubT[b.id]=fb.watchTx(b.id,(ch,fc)=>onTx(b.id,ch,fc),onErr)}
     else if(sh.books[b.id]!==j)ops.push({k:"update",id:b.id,data:d});sh.books[b.id]=j});
   const live=new Set(S.books.filter(b=>!b.sample&&sh.books[b.id]).map(b=>b.id)),have=new Set();
   S.tx.forEach(t=>{if(!live.has(t.bookId))return;have.add(t.id);const j=JSON.stringify(txData(t));if(sh.tx[t.id]!==j){ops.push({k:"tx",bid:t.bookId,id:t.id,data:txData(t)});sh.tx[t.id]=j}});
