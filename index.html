@@ -227,7 +227,10 @@ pre.ocr{white-space:pre-wrap;word-break:break-word;font:12px/1.45 ui-monospace,M
 .billcard .big{font-family:var(--f-d);font-size:2rem;line-height:1.1}
 .billcard .sub{display:flex;flex-wrap:wrap;gap:4px 14px;color:var(--muted);font-size:.95rem}
 .billcard .bar{height:6px;background:var(--sunk);border-radius:6px;overflow:hidden}.billcard .bar i{display:block;height:100%;background:var(--pos);border-radius:6px}
-.billcard .btn{align-self:flex-start;margin-top:4px}
+.billcard .actions .btn{flex:0 1 auto}
+.chips.chipwrap{flex-wrap:wrap;overflow:visible}
+.billcard .bar.lim i{background:var(--primary)}
+.book-total small{display:block;font-family:var(--f-b);font-weight:400;font-size:.8rem;color:var(--muted);text-align:right;margin-top:2px}
 .billcard.empty-bill{flex-direction:row;align-items:center;gap:14px;text-align:left;color:var(--fg);border-style:dashed;min-height:64px;width:100%;font-size:1rem}
 .billcard.empty-bill>span{display:flex;flex-direction:column;gap:2px}.billcard.empty-bill>span>span{color:var(--muted);font-size:.92rem}
 .pill.bad,.pill.ok,.pill.wait{white-space:nowrap}
@@ -348,18 +351,19 @@ function byCat(list){const o={};list.forEach(t=>{if(t.kind!=="settle")o[t.cat||"
 /* ---------- views ---------- */
 function home(){
   const cards=S.books.map(b=>{const l=txOf(b),n=l.filter(t=>t.kind!=="settle").length;let total,sub,bar="";
-    if(b.type==="trip"){const s=summary(b),x=transfers(s.net);total=fmt(s.total,b.cur);
+    let cap="";
+    if(b.type==="trip"){const s=summary(b),x=transfers(s.net);total=fmt(s.total,b.cur);cap="trip total";
       sub=`<span>${b.members.length} ${b.members.length===1?"member":"members"}, ${heads(b)} people</span><span>${n} expenses</span><span>${x.length?x.length+" to settle":n?"All settled":"No expenses yet"}</span>`}
-    else{const m=today().slice(0,7),ms=spent(l.filter(t=>(t.date||"").startsWith(m)));total=fmt(ms,b.cur);
-      sub=`<span>This month</span><span>${n} entries in total</span>${b.budget?`<span>Budget ${fmt(b.budget,b.cur)}</span>`:""}`;
+    else{const m=today().slice(0,7),ms=spent(l.filter(t=>(t.date||"").startsWith(m)));total=fmt(ms,b.cur);cap="spent this month";
+      sub=`<span>${n} entries in total</span>${b.budget?`<span>Budget ${fmt(b.budget,b.cur)}</span>`:""}`;
       if(b.budget)bar=`<div class="bar"><i class="${ms>b.budget?"over":""}" style="width:${Math.min(100,ms/b.budget*100).toFixed(1)}%"></i></div>`}
-    if(b.type==="card"){const st=cardStats(b,0),c=st.c;total=fmt(st.spend,b.cur);
-      const nb=nextBill(b),bs=nb&&billStatus(nb);
-      sub=`${nb&&bs.left>0?`<span class="${bs.cls==="bad"?"neg":""}">${fmtP(bs.left,b.cur)} ${bs.cls==="bad"?"overdue":"due"}${nb.dueDate?" by "+shortDate(nb.dueDate):""}</span>`:""}<span>${st.count} of ${c.target} for the fee waiver</span><span>${st.done?"Fee waived this year":"Fee year ends "+longDate(st.fy.end)}</span>`;
+    if(b.type==="card"){const st=cardStats(b,0),c=st.c,o=cardOwed(b);total=fmtP(o.total,b.cur);cap="still to pay";
+      const nb=o.bill,bs=nb&&billStatus(nb),late=bs&&bs.left>0&&nb.dueDate&&nb.dueDate<today();
+      sub=`${nb&&bs.left>0?`<span class="${bs.cls==="bad"?"neg":""}">Bill ${fmtP(bs.left,b.cur)} ${late?"overdue":"due"}${nb.dueDate?" by "+shortDate(nb.dueDate):""}</span>`:""}${o.limit?`<span class="${o.avail<0?"neg":""}">${fmtP(o.avail,b.cur)} of ${fmtP(o.limit,b.cur)} available</span>`:""}<span>Spent ${fmt(st.spend,b.cur)} this fee year</span><span>${st.count} of ${c.target} for the fee waiver</span><span>${st.done?"Fee waived this year":"Fee year ends "+longDate(st.fy.end)}</span>`;
       bar=`<div class="bar"><i style="width:${Math.min(100,st.count/c.target*100).toFixed(1)}%"></i></div>`}
     return `<button class="book" style="--h:${+b.hue||230}" data-a="open" data-id="${esc(b.id)}">
       <span class="book-name">${esc(b.name)} <span class="pill">${b.type==="trip"?"Trip":b.type==="card"?"Credit card"+(b.card&&b.card.last4?" "+esc(b.card.last4):""):"Daily ledger"}</span>${b.cloud&&b.cloud.members&&b.cloud.members.length>1?'<span class="pill">Shared</span>':""}</span>
-      <span class="book-total num">${total}</span><span class="book-sub">${sub}</span>${bar}</button>`}).join("");
+      <span class="book-total num">${total}<small>${cap}</small></span><span class="book-sub">${sub}</span>${bar}</button>`}).join("");
   return `<header class="hero"><canvas id="globe" aria-hidden="true"></canvas>
     <div class="hero-txt"><div class="brand"><i></i>Khoroch</div><h1>Split trips. Track every day.</h1><p>${SYNC.user?"Works offline and syncs to your account.":"Works offline. Your data stays on this device."}</p>
     ${ui.canInstall?'<button class="btn-ghost" data-a="install">Install app</button>':""}</div></header>
@@ -401,7 +405,7 @@ function trip(b){const l=txOf(b),s=summary(b),x=transfers(s.net),exp=l.filter(t=
       const pk=Object.keys(t.payers||{}),sh=sharesOf(t,b),among=Object.keys(sh).filter(k=>sh[k]>0);
       const who=pk.length>1?pk.map(k=>esc(mname(b,k))+" "+fmt(t.payers[k],b.cur)).join(" + "):esc(mname(b,pk[0]));
       const how=among.length===1?"only "+esc(mname(b,among[0])):(among.length===b.members.length?"everyone":among.map(k=>esc(mname(b,k))).join(", "))+((t.split||{}).mode==="heads"?", per person":(t.split||{}).mode==="equal"?", equal":", custom");
-      return `<button class="tx" data-a="edittx" data-id="${esc(t.id)}">${catIco(t.cat)}<span class="d">${esc(t.desc)}</span><span class="a num">${fmt(t.amount,b.cur)}</span><span class="s">${who} paid for ${how}${t.receipt?CLIP:""}</span></button>`})
+      return `<button class="tx" data-a="edittx" data-id="${esc(t.id)}">${catIco(t.cat)}<span class="d">${esc(t.desc)}</span><span class="a num">${fmt(t.amount,b.cur)}</span><span class="s">${who} paid for ${how}${t.via&&t.via!=="cash"?", "+esc(viaLabel(t.via)):""}${t.receipt?CLIP:""}</span></button>`})
     :`<div class="empty">${l.length?"Nothing in this filter.":"No expenses yet. Tap <b>Add expense</b> to log the first one."}</div>`}`}
   return `${topbar(b)}
   <section class="totals"><span class="eyebrow">Total spent</span><b class="big num">${fmt(s.total,b.cur)}</b><div class="sub num"><span>${fmt(h?s.total/h:0,b.cur)} per person, ${h} ${h===1?"person":"people"}</span><span>${exp.length} ${exp.length===1?"expense":"expenses"}</span></div></section>
@@ -420,7 +424,7 @@ function ledger(b){const m=ui.month,l=txOf(b).filter(t=>(t.date||"").startsWith(
   <section><div class="eyebrow">Spent ${isNow?"this month":"in "+monthLabel(m)}</div><div class="big num">${fmt(tot,b.cur)}</div>${budget}
     <div class="muted num" style="font-size:.86rem">${l.length} ${l.length===1?"entry":"entries"}${l.length?", averaging "+fmt(tot/dayN,b.cur)+" a day":""}</div></section>
   ${isoCard("week",isNow?"Last 7 days":"Last week of the month",ks.map(k=>per[k]||0),ks.map(k=>new Date(k+"T00:00:00").toLocaleDateString("en-GB",{weekday:"short"})))}
-  ${l.length?`<section><h2>Where it went</h2>${catBlock(l,b.cur)}</section><section><h2>Entries</h2>${dayBlocks(l,b,t=>`<button class="tx" data-a="edittx" data-id="${esc(t.id)}">${catIco(t.cat)}<span class="d">${esc(t.desc)}</span><span class="a num">${fmt(t.amount,b.cur)}</span><span class="s">${t.note?esc(t.note):catName(t.cat)}${t.receipt?CLIP:""}</span></button>`)}</section>`
+  ${l.length?`<section><h2>Where it went</h2>${catBlock(l,b.cur)}</section><section><h2>Entries</h2>${dayBlocks(l,b,t=>`<button class="tx" data-a="edittx" data-id="${esc(t.id)}">${catIco(t.cat)}<span class="d">${esc(t.desc)}</span><span class="a num">${fmt(t.amount,b.cur)}</span><span class="s">${t.note?esc(t.note):catName(t.cat)}${t.via?", "+esc(viaLabel(t.via)):""}${t.receipt?CLIP:""}</span></button>`)}</section>`
     :`<div class="empty">Nothing logged in ${monthLabel(m)}. Tap <b>Add expense</b> to start.</div>`}
   <button class="fab" data-a="addtx">+ Add expense</button>`}
 
@@ -444,7 +448,7 @@ function txSheet(){const b=curBook(),trip=b.type==="trip",groups=b.members.some(
   else{h+=scanBlock()+common+`<label class="f">What was it for?<input class="${F.filled&&F.filled.desc?"filled":""}" id="f-desc" data-f="desc" placeholder="Lunch, CNG, boat fare" maxlength="120" value="${esc(F.desc)}"></label>
     <div class="f">Category<div class="chips">${Object.keys(CATS).map(c=>`<button type="button" class="chip" data-a="cat" data-c="${c}" aria-pressed="${F.cat===c}">${catName(c)}</button>`).join("")}</div></div>
     <label class="f">Date<input class="${F.filled&&F.filled.date?"filled":""}" id="f-date" data-f="date" type="date" value="${esc(F.date)}"></label>`;
-    if(b.type==="card")h+=cardFields(b);
+    if(b.type==="card"){h+=cardFields(b);if(F.link){const src=S.books.find(x=>x.id===F.linkBook);h+=`<p class="muted" style="margin:0;font-size:.92rem">Added from ${esc(src?src.name:"another khata")}. Changes made there update this entry.</p>`}}else h+=viaField(b);
     if(trip){
       h+=`<div class="f">Who paid?${F.multi?b.members.map(m=>`<label class="rowin"><span>${esc(m.name)}</span><input class="num" id="f-pay-${esc(m.id)}" data-f="pay.${esc(m.id)}" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${esc(F.pay[m.id]||"")}"></label>`).join(""):pick(b.members,F.payer,"payer")}
         <button type="button" class="link" data-a="multi" style="align-self:flex-start">${F.multi?"Only one person paid":"More than one person paid"}</button></div>
@@ -456,6 +460,19 @@ function txSheet(){const b=curBook(),trip=b.type==="trip",groups=b.members.some(
   h+=`<div class="err" id="err" role="alert"></div>${ui.sheet.confirm?`<div class="confirm">Delete this entry?<div class="actions"><button class="btn danger" style="flex:1" data-a="deltx-yes">Delete</button><button class="btn" data-a="noconfirm">Keep</button></div></div>`:""}
     <div class="actions">${F.id?'<button class="btn danger" data-a="confirm">Delete</button>':""}<button class="btn primary" data-a="savetx">Save</button></div>`;
   return h}
+const cards=()=>S.books.filter(x=>x.type==="card");
+const cardName=c=>c.name+(c.card&&c.card.last4&&!c.name.includes(c.card.last4)?" "+c.card.last4:"");
+function viaLabel(v){if(!v)return"";if(v==="cash")return"Cash";if(v==="debit")return"Debit card";const c=S.books.find(x=>x.id===v);return c?cardName(c):"Credit card"}
+function viaField(b){const opts=[["cash","Cash"],["debit","Debit card"]].concat(cards().map(c=>[c.id,cardName(c)]));
+  return `<div class="f">Paid with<div class="chips chipwrap">${opts.map(([v,t])=>`<button type="button" class="chip" data-a="via" data-v="${esc(v)}" aria-pressed="${F.via===v}">${esc(t)}</button>`).join("")}</div>
+    ${F.via&&F.via!=="cash"&&F.via!=="debit"?`<span class="muted" style="font-weight:400;font-size:.92rem">Adds to what you owe on this card${b.type==="trip"?". The full amount is charged to the card":""}.</span>`:""}${cards().length?"":`<span class="muted" style="font-weight:400;font-size:.92rem">Add a Credit card khata to charge expenses to it.</span>`}</div>`}
+function viaPref(bid,v){try{if(v)localStorage.setItem("khoroch.via."+bid,v);else return localStorage.getItem("khoroch.via."+bid)||""}catch(e){return""}}
+/* keep the card's copy of a charged expense in step with the original */
+function linkTx(t){const mine=S.tx.filter(x=>x.link===t.id),card=t.kind==="expense"&&t.via&&S.books.find(x=>x.id===t.via&&x.type==="card");
+  S.tx=S.tx.filter(x=>x.link!==t.id||(card&&x.bookId===card.id));if(!card)return;
+  const old=mine.find(x=>x.bookId===card.id),ct=old&&old.ctype||classify(t.desc);
+  const m=Object.assign(old||{id:"lk"+t.id,created:Date.now()},{bookId:card.id,kind:"expense",amount:t.amount,desc:t.desc,cat:t.cat,date:t.date,note:"",ctype:CT[ct]?ct:"purchase",link:t.id,linkBook:t.bookId});
+  if(!old)S.tx.push(m)}
 function fShares(){const b=curBook();if(F.mode==="custom"){const o={};b.members.forEach(m=>o[m.id]=parseFloat(F.custom[m.id])||0);return o}
   return sharesOf({amount:parseFloat(F.amount)||0,split:{mode:F.mode,among:F.among}},b)}
 function preview(){const p=$("#preview");if(!p||!F)return;const b=curBook(),amt=parseFloat(F.amount)||0,sh=fShares();
@@ -470,7 +487,8 @@ function bookSheet(){const used=new Set();if(B.id)txOf(B).forEach(t=>{Object.key
   if(!B.id)h+=`<div class="seg"><button data-a="btype" data-t="trip" aria-pressed="${B.type==="trip"}">Trip</button><button data-a="btype" data-t="personal" aria-pressed="${B.type==="personal"}">Daily ledger</button><button data-a="btype" data-t="card" aria-pressed="${B.type==="card"}">Credit card</button></div>`;
   h+=`<label class="f">Name<input id="b-name" data-b="name" maxlength="60" placeholder="${B.type==="trip"?"Bandarban, December":B.type==="card"?"EBL Visa Platinum":"Daily expenses"}" value="${esc(B.name)}"></label>
   <div class="grid2"><label class="f">Currency<select id="b-cur" data-b="cur">${CURS.map(c=>`<option value="${c[0]}"${B.cur===c[0]?" selected":""}>${c[0]} ${c[1]}</option>`).join("")}</select></label>
-  ${B.type==="card"?`<label class="f">Last 4 digits (optional)<input id="b-last4" class="num" data-b="card.last4" inputmode="numeric" maxlength="4" placeholder="1234" value="${esc(B.card.last4)}"></label>`:B.type==="trip"?`<label class="f">Start date<input id="b-start" data-b="start" type="date" value="${esc(B.start||"")}"></label>`:`<label class="f">Monthly budget (optional)<input id="b-budget" class="num" data-b="budget" type="number" inputmode="decimal" min="0" placeholder="0" value="${esc(B.budget||"")}"></label>`}</div>`;
+  ${B.type==="card"?`<div class="grid2"><label class="f">Last 4 digits (optional)<input id="b-last4" class="num" data-b="card.last4" inputmode="numeric" maxlength="4" placeholder="1234" value="${esc(B.card.last4)}"></label>
+    <label class="f">Credit limit (${esc(B.cur)})<input id="b-limit" class="num" data-b="card.limit" type="number" inputmode="decimal" min="0" step="any" placeholder="Optional" value="${esc(B.card.limit||"")}"></label></div>`:B.type==="trip"?`<label class="f">Start date<input id="b-start" data-b="start" type="date" value="${esc(B.start||"")}"></label>`:`<label class="f">Monthly budget (optional)<input id="b-budget" class="num" data-b="budget" type="number" inputmode="decimal" min="0" placeholder="0" value="${esc(B.budget||"")}"></label>`}</div>`;
   if(B.type==="card")h+=cardRulesFields();
   if(B.type==="trip")h+=`<div class="f">Who is on the trip?<span style="font-weight:400">Add each person, or a couple or family as one entry and set how many people it covers.</span>
     ${B.members.map((m,i)=>`<div class="mem"><input id="b-m-${i}" data-bm="${i}" maxlength="40" placeholder="Name" aria-label="Member name" value="${esc(m.name)}">
@@ -519,13 +537,14 @@ function clean(d){if(!d||!Array.isArray(d.books))throw new Error("shape");
     hue:Math.round(+b.hue||230)%360,start:isDate(b.start)?b.start:"",end:isDate(b.end)?b.end:"",budget:Math.max(0,+b.budget||0),created:+b.created||Date.now(),
     members:(Array.isArray(b.members)?b.members:[]).filter(m=>m&&m.id).map(m=>({id:sid(m.id),name:String(m.name||"").slice(0,60),heads:Math.max(1,Math.min(99,Math.round(+m.heads||1)))}))}));
   books.forEach((nb,i)=>{const b=d.books.filter(b=>b&&b.id&&typeof b.name==="string")[i];if(nb.type!=="card")return;const c=b.card||{},r={};Object.keys(CT).forEach(k=>r[k]=c.rules&&k in c.rules?!!c.rules[k]:CT_DEFAULT[k]);
-    nb.card={last4:String(c.last4||"").replace(/\D/g,"").slice(-4),target:Math.max(1,Math.min(365,Math.round(+c.target||24))),feeStart:/^\d{2}-\d{2}$/.test(c.feeStart||"")?c.feeStart:"01-01",minAmt:Math.max(0,+c.minAmt||0),fee:Math.max(0,+c.fee||0),rules:r};
+    nb.card={last4:String(c.last4||"").replace(/\D/g,"").slice(-4),target:Math.max(1,Math.min(365,Math.round(+c.target||24))),feeStart:/^\d{2}-\d{2}$/.test(c.feeStart||"")?c.feeStart:"01-01",minAmt:Math.max(0,+c.minAmt||0),fee:Math.max(0,+c.fee||0),limit:Math.max(0,+c.limit||0),rules:r};
     nb.statements=(Array.isArray(b.statements)?b.statements:[]).filter(x=>x&&x.id).slice(0,500).map(x=>({id:sid(x.id),file:String(x.file||"").slice(0,120),from:isDate(x.from)?x.from:"",to:isDate(x.to)?x.to:"",count:Math.max(0,Math.round(+x.count||0)),total:Math.max(0,+x.total||0),added:+x.added||Date.now(),
-      due:Math.max(0,+x.due||0),min:Math.max(0,+x.min||0),dueDate:isDate(x.dueDate)?x.dueDate:"",paid:Math.max(0,+x.paid||0),paidOn:isDate(x.paidOn)?x.paidOn:""}))});
+      due:Math.max(0,+x.due||0),min:Math.max(0,+x.min||0),dueDate:isDate(x.dueDate)?x.dueDate:"",paid:Math.max(0,+x.paid||0),paidOn:isDate(x.paidOn)?x.paidOn:"",stmtDate:isDate(x.stmtDate)?x.stmtDate:""}))});
   const ids=new Set(books.map(b=>b.id));
   const tx=(Array.isArray(d.tx)?d.tx:[]).filter(t=>t&&ids.has(sid(t.bookId))&&isFinite(+t.amount)).map(t=>{const o={id:sid(t.id||uid()),bookId:sid(t.bookId),kind:t.kind==="settle"?"settle":"expense",amount:Math.abs(+t.amount),
       desc:String(t.desc||"").slice(0,160),cat:CATS[t.cat]?t.cat:"other",date:isDate(t.date)?t.date:today(),note:String(t.note||"").slice(0,200),created:+t.created||Date.now()};if(typeof t.receipt==="string"&&t.receipt)o.receipt=sid(t.receipt);
     if(CT[t.ctype])o.ctype=t.ctype;if(t.count===true||t.count===false)o.count=t.count;if(typeof t.stmt==="string"&&t.stmt)o.stmt=sid(t.stmt);
+    if(typeof t.via==="string"&&t.via)o.via=t.via==="cash"||t.via==="debit"?t.via:sid(t.via);if(typeof t.link==="string"&&t.link){o.link=sid(t.link);o.linkBook=sid(t.linkBook||"")}
     if(o.kind==="settle"){o.from=sid(t.from||"");o.to=sid(t.to||"")}
     else if(t.payers){o.payers=numMap(t.payers);const sp=t.split||{};o.split={mode:["heads","equal","custom"].includes(sp.mode)?sp.mode:"heads"};
       if(o.split.mode==="custom")o.split.custom=numMap(sp.custom);else o.split.among=(Array.isArray(sp.among)?sp.among:[]).map(sid)}
@@ -556,7 +575,7 @@ const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").sl
 
 /* ---------- actions ---------- */
 function newF(b){const ids=b.members.map(m=>m.id);F={id:null,kind:"expense",amount:"",desc:"",cat:"food",date:today(),note:"",payer:ids[0],multi:false,pay:{},
-  mode:b.members.some(m=>m.heads>1)?"heads":"equal",among:ids.slice(),custom:{},from:ids[1]||ids[0],to:ids[0],receipt:null,receiptUrl:"",newReceipt:null,removeReceipt:false,scan:null,filled:{},catTouched:false,scanTok:0,ctype:"purchase",countMode:"auto"};
+  mode:b.members.some(m=>m.heads>1)?"heads":"equal",among:ids.slice(),custom:{},from:ids[1]||ids[0],to:ids[0],receipt:null,receiptUrl:"",newReceipt:null,removeReceipt:false,scan:null,filled:{},catTouched:false,scanTok:0,ctype:"purchase",countMode:"auto",via:b.type==="card"?"":viaPref(b.id)||"cash"};
   if(b.type==="trip"&&b.start&&today()<b.start)F.date=b.start}
 const A={
   open(d){ui.view="book";ui.bookId=d.id;ui.tab="overview";ui.fy=0;ui.filter="All";ui.month=today().slice(0,7);history.pushState({k:"book"},"");render(true)},
@@ -567,7 +586,7 @@ const A={
   close(){closeSheet()},confirm(){ui.sheet.confirm=true;drawSheet();$("#sheet").scrollTop=1e5},noconfirm(){ui.sheet.confirm=false;drawSheet()},
   addtx(){if(curBook().type==="card"){openSheet("cardadd");return}newF(curBook());if(curBook().type==="personal"&&ui.month!==today().slice(0,7))F.date=ui.month+"-01";openSheet("tx");setTimeout(()=>{const i=$("#f-amount");i&&i.focus()},80)},
   edittx(d){const b=curBook(),t=S.tx.find(x=>x.id===d.id);if(!t)return;newF(b);Object.assign(F,{id:t.id,kind:t.kind||"expense",amount:String(t.amount),desc:t.desc||"",cat:t.cat||"other",date:t.date,note:t.note||"",created:t.created});
-    F.catTouched=true;if(b.type==="card"){F.ctype=t.ctype||"purchase";F.countMode=t.count===true?"yes":t.count===false?"no":"auto";F.stmt=t.stmt||""}
+    F.catTouched=true;F.via=t.via||(b.type==="card"?"":"cash");F.link=t.link||"";F.linkBook=t.linkBook||"";if(b.type==="card"){F.ctype=t.ctype||"purchase";F.countMode=t.count===true?"yes":t.count===false?"no":"auto";F.stmt=t.stmt||""}
     if(t.receipt){const rid=t.receipt;F.receipt=rid;rurl(rid).then(u=>{if(F&&F.receipt===rid){F.receiptUrl=u||"";if(!u)F.scan={state:"error",msg:"This bill photo isn't on this phone."};drawSheet()}})}
     if(t.kind==="settle"){F.from=t.from;F.to=t.to}
     else if(b.type==="trip"){const pk=Object.keys(t.payers||{});F.multi=pk.length>1;F.payer=pk[0]||F.payer;pk.forEach(k=>F.pay[k]=String(t.payers[k]));const sp=t.split||{};F.mode=sp.mode||"heads";
@@ -588,14 +607,17 @@ const A={
         else t.payers={[F.payer]:amt};
         if(F.mode==="custom"){const sh=fShares(),sum=Object.values(sh).reduce((a,c)=>a+c,0);if(Math.abs(sum-amt)>.5)return err(`The shares add up to ${fmt(sum,b.cur)}, but the expense is ${fmt(amt,b.cur)}.`);t.split={mode:"custom",custom:sh}}
         else{if(!F.among.length)return err("Pick at least one member this was for.");t.split={mode:F.mode,among:F.among.slice()}}}}
+    if(b.type!=="card"&&F.kind==="expense"&&F.via){t.via=F.via;viaPref(b.id,F.via)}
+    if(F.link){t.link=F.link;t.linkBook=F.linkBook}
     if(b.type==="card"&&F.kind==="expense"){t.ctype=CT[F.ctype]?F.ctype:"purchase";if(F.countMode!=="auto")t.count=F.countMode==="yes";if(F.stmt)t.stmt=F.stmt}
     if(F.kind==="expense"&&F.newReceipt){const rid="r"+uid();F.saving=true;try{await IDB.put(rid,F.newReceipt.blob);t.receipt=rid;RURL[rid]=F.newReceipt.url;F.newReceipt.kept=true;if(F.receipt)IDB.del(F.receipt).catch(()=>{})}catch(e){F.saving=false;return err("Couldn't save the bill photo on this phone. Remove it to save the entry without it.")}F.saving=false}
     else if(F.receipt&&(F.removeReceipt||F.kind!=="expense"))IDB.del(F.receipt).catch(()=>{});
     else if(F.receipt)t.receipt=F.receipt;
-    const i=S.tx.findIndex(x=>x.id===t.id);if(i>=0)S.tx[i]=t;else S.tx.push(t);save();const was=!!F.id;closeSheet();render();toast(was?"Updated":"Saved",!was)},
-  "deltx-yes"(){if(F.receipt)IDB.del(F.receipt).catch(()=>{});S.tx=S.tx.filter(t=>t.id!==F.id);save();closeSheet();render();toast("Deleted")},
+    const i=S.tx.findIndex(x=>x.id===t.id);if(i>=0)S.tx[i]=t;else S.tx.push(t);if(b.type!=="card")linkTx(t);save();const was=!!F.id;closeSheet();render();toast(was?"Updated":"Saved",!was)},
+  "deltx-yes"(){if(F.receipt)IDB.del(F.receipt).catch(()=>{});S.tx=S.tx.filter(t=>t.id!==F.id&&t.link!==F.id);save();closeSheet();render();toast("Deleted")},
+  via(d){F.via=d.v;drawSheet()},
   newbook(d){B={id:null,type:d&&d.t||"trip",name:"",cur:(S.books[S.books.length-1]||{}).cur||"৳",start:"",budget:"",members:[{id:uid(),name:"",heads:1},{id:uid(),name:"",heads:1}],
-    card:{last4:"",target:"24",feeDate:today(),minAmt:"",fee:"",rules:Object.assign({},CT_DEFAULT)}};openSheet("book")},
+    card:{last4:"",target:"24",feeDate:today(),minAmt:"",fee:"",limit:"",rules:Object.assign({},CT_DEFAULT)}};openSheet("book")},
   editbook(){const b=curBook();B=JSON.parse(JSON.stringify(b));B.budget=B.budget||"";
     if(b.type==="card"){const c=cardOf(b);B.card={last4:c.last4,target:String(c.target),feeDate:feeYear(c,0).start,minAmt:c.minAmt?String(c.minAmt):"",fee:c.fee?String(c.fee):"",rules:Object.assign({},c.rules)}}
     else B.card={last4:"",target:"24",feeDate:today(),minAmt:"",fee:"",rules:Object.assign({},CT_DEFAULT)};openSheet("book")},
@@ -608,7 +630,7 @@ const A={
     const nb={id:B.id||uid(),type:B.type,name,cur:B.cur,hue:B.hue??[160,205,265,25,330,48][S.books.length%6],start:B.type==="trip"&&isDate(B.start)?B.start:"",end:B.end||"",budget:B.type==="personal"?Math.max(0,parseFloat(B.budget)||0):0,created:B.created||Date.now(),members:[]};
     if(B.type==="card"){const t=Math.round(+B.card.target);if(!(t>=1&&t<=365))return err("Enter how many transactions the bank needs, for example 24.");
       if(!isDate(B.card.feeDate))return err("Pick the date your fee year starts. It's usually when the card was issued or renewed.");
-      nb.card={last4:String(B.card.last4||"").replace(/\D/g,"").slice(-4),target:t,feeStart:B.card.feeDate.slice(5),minAmt:Math.max(0,+B.card.minAmt||0),fee:Math.max(0,+B.card.fee||0),rules:Object.assign({},B.card.rules)};
+      nb.card={last4:String(B.card.last4||"").replace(/\D/g,"").slice(-4),target:t,feeStart:B.card.feeDate.slice(5),minAmt:Math.max(0,+B.card.minAmt||0),fee:Math.max(0,+B.card.fee||0),limit:Math.max(0,parseFloat(B.card.limit)||0),rules:Object.assign({},B.card.rules)};
       nb.statements=Array.isArray(B.statements)?B.statements:[]}
     if(B.type==="trip"){nb.members=B.members.filter(m=>m.name.trim()).map(m=>({id:m.id,name:m.name.trim(),heads:m.heads}));
       if(B.members.some(m=>!m.name.trim())&&B.id&&nb.members.length<B.members.length&&txOf(B).length)return err("Every member needs a name.");
@@ -924,14 +946,26 @@ function billStatus(x){if(!x||!(x.due>0))return null;const left=r2(Math.max(0,x.
 let fmtCur="৳";const fmtN=n=>fmtP(n,fmtCur);
 function nextBill(b){fmtCur=b.cur;const l=(b.statements||[]).filter(x=>x.due>0).sort((x,y)=>stKey(y).localeCompare(stKey(x)));
   return l.find(x=>billStatus(x).left>0&&x.dueDate&&x.dueDate<today())||l[0]||null}
-function billCard(b){const x=nextBill(b);
-  if(!x)return `<button class="billcard empty-bill" data-a="addbill">${ico(I.plus)}<span><b>Add this month's bill</b><span>Amount due, payment due date and what you've paid</span></span></button>`;
-  const bs=billStatus(x),pct=Math.min(100,(x.paid||0)/x.due*100);
-  return `<section class="billcard ${bs.cls}"><div class="bc-top"><span class="eyebrow">${bs.left>0?"Outstanding":"Last bill"}</span><span class="pill ${bs.cls}">${bs.left<=0?"Paid":bs.cls==="bad"&&x.dueDate&&x.dueDate<today()?"Overdue":"Due"}</span></div>
-    <b class="big num">${fmtP(bs.left>0?bs.left:x.due,b.cur)}</b>
-    <div class="sub num">${x.dueDate?`<span>Pay by ${longDate(x.dueDate)}</span>`:""}${x.min&&bs.left>0?`<span>Minimum ${fmtP(x.min,b.cur)}</span>`:""}<span>${bs.left>0&&x.paid>0?`Paid ${fmtP(x.paid,b.cur)} of ${fmtP(x.due,b.cur)}`:bs.left>0?"Bill "+fmtP(x.due,b.cur):bs.txt}</span></div>
-    <div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div>
-    <button class="btn ${bs.left>0?"primary":""}" data-a="stmt" data-id="${esc(x.id)}">${bs.left>0?"Record payment":"View bill"}</button></section>`}
+function cardOwed(b){const st=(b.statements||[]),bills=st.filter(x=>x.due>0).sort((x,y)=>stKey(y).localeCompare(stKey(x))),bill=bills[0]||null;
+  const dOf=x=>x.stmtDate||x.to||(x.added?new Date(x.added).toISOString().slice(0,10):""),last=st.slice().sort((x,y)=>dOf(y).localeCompare(dOf(x))||(y.added||0)-(x.added||0))[0],cut=last&&(last.stmtDate||last.to);
+  const newer=txOf(b).filter(t=>t.kind!=="settle"&&!t.stmt&&(!last||(cut?t.date>cut:(t.created||0)>(last.added||0)))),unbilled=r2(newer.reduce((a,t)=>a+(+t.amount||0),0));
+  const billLeft=bill?billStatus(bill).left:0,total=r2(billLeft+unbilled),limit=(b.card&&b.card.limit)||0;
+  return{bill,billLeft,unbilled,count:newer.length,total,limit,avail:limit?r2(limit-total):null}}
+function billCard(b){const o=cardOwed(b),x=o.bill,c=b.cur;
+  if(!x&&!o.unbilled&&!o.limit)return `<button class="billcard empty-bill" data-a="addbill">${ico(I.plus)}<span><b>Add this month's bill</b><span>Amount due, payment due date and what you've paid</span></span></button>`;
+  const bs=x&&billStatus(x),late=bs&&bs.left>0&&x.dueDate&&x.dueDate<today(),cls=late||(bs&&bs.cls==="bad"&&bs.left>0)?"bad":o.total>0?"wait":"ok";
+  const rows=[];
+  if(x)rows.push(`<div class="r"><span>Bill${x.dueDate?", pay by "+longDate(x.dueDate):""}</span><b class="${bs.left>0&&bs.cls==="bad"?"neg":bs.left<=0?"pos":""}">${bs.left>0?fmtP(bs.left,c)+" left":"Paid"}</b></div>`);
+  if(x&&x.min&&bs.left>0)rows.push(`<div class="r"><span>Minimum due</span><b>${fmtP(x.min,c)}</b></div>`);
+  if(o.unbilled)rows.push(`<div class="r"><span>New spending, not billed yet (${o.count})</span><b>${fmtP(o.unbilled,c)}</b></div>`);
+  if(o.limit)rows.push(`<div class="r"><span>Available of ${fmtP(o.limit,c)} limit</span><b class="${o.avail<0?"neg":""}">${fmtP(o.avail,c)}</b></div>`);
+  const pct=o.limit?Math.min(100,Math.max(0,o.total/o.limit*100)):x?Math.min(100,(x.paid||0)/x.due*100):0;
+  return `<section class="billcard ${cls}"><div class="bc-top"><span class="eyebrow">Still to pay</span>${late?'<span class="pill bad">Overdue</span>':bs&&bs.left<=0&&!o.unbilled?'<span class="pill ok">Paid</span>':""}</div>
+    <b class="big num">${fmtP(o.total,c)}</b>
+    ${x&&bs.left>0?`<div class="sub">${bs.txt}</div>`:""}
+    ${o.limit||x?`<div class="bar${o.limit?" lim":""}"><i style="width:${pct.toFixed(1)}%"></i></div>`:""}
+    <div class="preview num">${rows.join("")}</div>
+    <div class="actions" style="margin:0">${x?`<button class="btn ${bs.left>0?"primary":""}" data-a="stmt" data-id="${esc(x.id)}">${bs.left>0?"Record payment":"View bill"}</button>`:""}<button class="btn" data-a="addbill">${x?"New bill":"Add bill"}</button></div></section>`}
 function billOf(x,edit){x=x||{};const has=x.due>0||!!x.dueDate;
   return{due:x.due?String(x.due):"",min:x.min?String(x.min):"",dueDate:x.dueDate||"",amt:x.paid?String(x.paid):"",paidOn:x.paidOn||today(),edit:edit||!has}}
 function daysTo(d){return Math.round((new Date(d+"T00:00:00")-new Date(today()+"T00:00:00"))/864e5)}
@@ -974,7 +1008,7 @@ function findBill(text){const lines=String(text||"").replace(/[০-৯]/g,d=>"�
   const LAB=[["min",MIN,"a"],["dd",DD,"d"],["due",DUE,"a"],["sd",/\b(statement|bill|billing) (date|generation date)\b/i,"d"],["x",/\b(credit limit|available (credit )?limit|available credit|cash (advance )?limit|previous balance|opening balance|reward points?|payments?( and)? credits|purchases?( and debits)?|fees? and charges|interest charges?)\b/i,"a"]];
   const labelsIn=l=>{const f=[];LAB.forEach(([k,re,t])=>{const g=new RegExp(re.source,"gi");for(const m of l.matchAll(g))f.push({k,t,i:m.index,e:m.index+m[0].length})});
     f.sort((p,q)=>p.i-q.i||(q.e-q.i)-(p.e-p.i));const keep=[];f.forEach(x=>{if(!keep.length||x.i>=keep[keep.length-1].e)keep.push(x)});return keep};
-  const r={due:0,min:0,dueDate:""},set=(k,v)=>{if(k==="due"&&!r.due&&v>0)r.due=v;else if(k==="min"&&!r.min&&v>0)r.min=v;else if(k==="dd"&&!r.dueDate&&v)r.dueDate=v};
+  const r={due:0,min:0,dueDate:"",stmtDate:""},set=(k,v)=>{if(k==="sd"&&!r.stmtDate&&v)r.stmtDate=v;else if(k==="due"&&!r.due&&v>0)r.due=v;else if(k==="min"&&!r.min&&v>0)r.min=v;else if(k==="dd"&&!r.dueDate&&v)r.dueDate=v};
   lines.forEach((l,i)=>{const labs=labelsIn(l);if(!labs.length)return;
     const rest=labs.reduceRight((s2,x)=>s2.slice(0,x.i)+s2.slice(x.e),l);
     if(labs.length>=2&&!/\d/.test(rest)){ // a table header: values sit on the next line(s) in the same order
@@ -982,7 +1016,7 @@ function findBill(text){const lines=String(text||"").replace(/[০-৯]/g,d=>"�
       if(vt.length===labs.length)labs.forEach((x,n)=>{const v=vt[n];if(v.t===x.t)set(x.k,v.v)});
       else{const ds=vt.filter(t=>t.t==="d"),as=vt.filter(t=>t.t==="a");labs.filter(x=>x.t==="d").forEach((x,n)=>ds[n]&&set(x.k,ds[n].v));labs.filter(x=>x.t==="a").forEach((x,n)=>as[n]&&set(x.k,as[n].v))}
       return}
-    labs.forEach((x,n)=>{if(!["due","min","dd"].includes(x.k))return;let seg=l.slice(x.e,n+1<labs.length?labs[n+1].i:l.length);
+    labs.forEach((x,n)=>{if(!["due","min","dd","sd"].includes(x.k))return;let seg=l.slice(x.e,n+1<labs.length?labs[n+1].i:l.length);
       if(!/\d/.test(seg)){const nx=lines[i+1]||"";if(labelsIn(nx).length)return;seg=nx}
       if(x.t==="d"){const d=dateAt(seg);if(d)set(x.k,d.d)}else set(x.k,amtOf(seg))})});
   if(r.min>r.due&&r.due)r.min=0;return r}
@@ -1042,7 +1076,7 @@ async function handleStatement(file,pw){const b=curBook();if(!b||b.type!=="card"
     const rows=r.rows.map(x=>{const ct=classify(x.desc),dup=have.has(x.date+"|"+x.amount.toFixed(2)+"|"+x.desc.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,12));return Object.assign(x,{ctype:ct,cat:guessCat(x.desc,ct),dup,on:!dup})});
     const fb=r.bill;ui.sheet.bill=Object.assign(billOf({due:fb.due,min:fb.min,dueDate:fb.dueDate},true),{auto:{due:!!fb.due,min:!!fb.min,dueDate:!!fb.dueDate}});
     const okB=fb.due>0||!!fb.dueDate;ui.sheet.bill.edit=!okB;
-    ui.sheet.st={state:rows.length||okB?"review":"error",file,rows,credits:r.credits,from:r.from,to:r.to,msg:rows.length?"":"No transactions were found in this file. Statements with a date at the start of each line and the amount at the end work best. A text PDF from the bank works better than a photo."};
+    ui.sheet.st={stmtDate:fb.stmtDate||"",state:rows.length||okB?"review":"error",file,rows,credits:r.credits,from:r.from,to:r.to,msg:rows.length?"":"No transactions were found in this file. Statements with a date at the start of each line and the amount at the end work best. A text PDF from the bank works better than a photo."};
     drawSheet()}
   catch(e){OCR.cb=null;if(!alive())return;const m=String(e&&e.message||e);
     ui.sheet.st={state:"error",file,msg:m==="too big"?"That file is over 40 MB.":m==="artifact-ocr"?"Reading photos and scanned PDFs works in the installed app. Text PDFs and CSV files work here.":/load|fetch|network|script|import|wasm|failed/i.test(m)?"Couldn't load the statement reader. Connect to the internet once, then it works offline.":"Couldn't read this file. If it's a PDF, try downloading it again from the bank. You can also export a CSV from internet banking."};drawSheet()}}
@@ -1066,7 +1100,7 @@ function stmtSheet(){const st=ui.sheet.st||{},b=curBook(),c=cardOf(b);let h=head
 function addStatement(){const b=curBook(),st=ui.sheet.st,on=st.rows.filter(r=>r.on),bv=billVals();if(bv.e)return err(bv.e);delete bv.e;
   if(!on.length&&!bv.due&&!bv.dueDate)return err("Nothing to save. Tick some transactions or enter the bill details.");const id="s"+uid(),now=Date.now();
   on.forEach((r,i)=>S.tx.push({id:uid(),bookId:b.id,kind:"expense",amount:r.amount,desc:r.desc,cat:r.cat,ctype:r.ctype,date:r.date,note:"",stmt:id,created:now+i}));
-  b.statements=(b.statements||[]).concat([{id,file:(st.file&&st.file.name||"").slice(0,120),from:st.from,to:st.to,count:on.length,total:Math.round(on.reduce((a,r)=>a+r.amount,0)*100)/100,added:now,due:bv.due,min:bv.min,dueDate:bv.dueDate,paid:bv.paid,paidOn:bv.paidOn}]);
+  b.statements=(b.statements||[]).concat([{id,file:(st.file&&st.file.name||"").slice(0,120),from:st.from,to:st.to,count:on.length,total:Math.round(on.reduce((a,r)=>a+r.amount,0)*100)/100,added:now,due:bv.due,min:bv.min,dueDate:bv.dueDate,paid:bv.paid,paidOn:bv.paidOn,stmtDate:st.stmtDate||st.to||""}]);
   save();closeSheet();ui.tab="overview";render();toast(on.length?`Saved the bill and ${on.length} ${on.length===1?"transaction":"transactions"}`:"Bill saved",true)}
 
 /* ---------- credit cards: chart ---------- */
