@@ -13,7 +13,7 @@ Khoroch (খরচ, "expense" in Bangla) is a lightweight expense app that insta
 
 ## Features
 
-The home screen keeps your khatas in three tabs, **Daily**, **Trips** and **Cards**, and opens on the one you used last.
+The home screen keeps your khatas in four tabs, **Daily**, **Trips**, **Cards** and **Loans**, and opens on the one you used last. Hold a khata and drag it up or down to reorder it, or hold a tab and drag it left or right.
 
 ### Group trips
 - Add each traveller, or add a couple or family as one entry with a headcount, so a group of 3 pays more than a couple.
@@ -31,6 +31,11 @@ The home screen keeps your khatas in three tabs, **Daily**, **Trips** and **Card
 - **Sign in** with Google or email to keep your khatas on every phone and computer. Everything still saves on the device first, so the app keeps working offline and uploads when you're back online.
 - **Share a trip** with an invite link. Friends who join can add and edit expenses, and everyone sees changes live.
 - Runs on your own free Firebase project. Follow [SYNC_SETUP.md](SYNC_SETUP.md) to turn it on. Without it, Khoroch stays offline-only and nothing leaves the phone.
+
+### Lending and borrowing
+- A **Loans** khata records money you lend and borrow: **You lent**, **You borrowed**, **Got back** and **You paid back**, with an optional pay-back date.
+- See the total **owed to you** and what **you owe**, a balance for each person, and anything past its due date.
+- Open a person to see their history and record a repayment in one tap, for the full balance or any part of it.
 
 ### Credit card fee waivers
 Many cards waive the yearly fee after a set number of transactions, and every bank counts differently. A **Credit card** khata tracks this for each card.

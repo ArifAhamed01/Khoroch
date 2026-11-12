@@ -231,7 +231,18 @@ pre.ocr{white-space:pre-wrap;word-break:break-word;font:12px/1.45 ui-monospace,M
 .chips.chipwrap{flex-wrap:wrap;overflow:visible}
 .billcard .bar.lim i{background:var(--primary)}
 .book-total .of{font-size:.6em;color:var(--muted);font-weight:600}
-.htabs{grid-template-columns:repeat(3,1fr);margin-bottom:14px}
+.htabs{grid-template-columns:repeat(4,1fr);margin-bottom:10px}
+.htabs button{padding-left:2px;padding-right:2px;font-size:.95rem}
+.hint{margin:0 0 10px;font-size:.9rem}
+[data-sort]{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.drag-shift{transition:transform .18s ease}
+.dragging{position:relative;z-index:5;box-shadow:0 14px 30px -10px rgba(0,0,0,.35)!important;transition:none!important;opacity:.97}
+.is-dragging,.is-dragging body{overscroll-behavior:none}
+.loan-tot{display:grid;grid-template-columns:1fr 1fr;gap:12px}.loan-tot>div{display:flex;flex-direction:column;gap:4px;min-width:0}.loan-tot .big{font-size:1.7rem}
+.loan-acts{display:flex;gap:10px}.loan-acts .btn{flex:1}
+.cat.av{font-family:var(--f-d);font-weight:700;font-size:1.05rem;background:var(--sunk);color:var(--fg);border-radius:50%}
+.cat.ld{background:var(--sunk)}.cat.ld-lent,.cat.ld-got{color:var(--pos)}.cat.ld-borrowed,.cat.ld-paid{color:var(--neg)}
+.seg.dir,.seg.btypes{grid-auto-flow:row;grid-template-columns:1fr 1fr}
 .htabs .cnt{display:inline-block;min-width:1.5em;padding:0 6px;margin-left:4px;border-radius:999px;background:var(--line);color:var(--muted);font-size:.8em;font-weight:600;line-height:1.5}
 .htabs [aria-pressed="true"] .cnt{background:var(--primary);color:var(--primary-fg)}
 .book-total small{display:block;font-family:var(--f-b);font-weight:400;font-size:.8rem;color:var(--muted);text-align:right;margin-top:2px}
@@ -354,13 +365,15 @@ function byCat(list){const o={};list.forEach(t=>{if(t.kind!=="settle")o[t.cat||"
 
 /* ---------- views ---------- */
 function home(){
-  const HT=[["personal","Daily","daily ledger"],["trip","Trips","trip"],["card","Cards","card"]],has=t=>S.books.some(b=>b.type===t);
+  const HT=tabOrder().map(t=>HTABS[t]),has=t=>S.books.some(b=>b.type===t);
   if(!HT.some(h=>h[0]===ui.htab)){let v="";try{v=localStorage.getItem("khoroch.hometab")||""}catch(e){}ui.htab=HT.some(h=>h[0]===v)?v:""}
   if(!ui.htab||(!has(ui.htab)&&HT.some(h=>has(h[0]))&&!ui.htabPicked))ui.htab=(HT.find(h=>has(h[0]))||HT[0])[0];
-  const shown=S.books.filter(b=>b.type===ui.htab);
+  const shown=sortBooks(S.books.filter(b=>b.type===ui.htab));
   const cards=shown.map(b=>{const l=txOf(b),n=l.filter(t=>t.kind!=="settle").length;let total,sub,bar="";
     let cap="";
-    if(b.type==="trip"){const s=summary(b),x=transfers(s.net);total=fmt(s.total,b.cur);cap="trip total";
+    if(b.type==="loan"){const L=loanSum(b),open=L.people.filter(p=>Math.abs(p.bal)>=.005),over=open.filter(p=>p.over).length;total=fmtP(L.owed,b.cur);cap="owed to you";
+      sub=`<span class="${L.owe>0?"neg":""}">You owe ${fmtP(L.owe,b.cur)}</span><span>${open.length?open.length+(open.length===1?" open balance":" open balances"):n?"All settled":"No entries yet"}</span>${over?`<span class="neg">${over} past due</span>`:""}`}
+    else if(b.type==="trip"){const s=summary(b),x=transfers(s.net);total=fmt(s.total,b.cur);cap="trip total";
       sub=`<span>${b.members.length} ${b.members.length===1?"member":"members"}, ${heads(b)} people</span><span>${n} expenses</span><span>${x.length?x.length+" to settle":n?"All settled":"No expenses yet"}</span>`}
     else{const m=today().slice(0,7),ms=spent(l.filter(t=>(t.date||"").startsWith(m)));total=fmt(ms,b.cur);cap="spent this month";
       sub=`<span>${n} entries in total</span>${b.budget?`<span>Budget ${fmt(b.budget,b.cur)}</span>`:""}`;
@@ -369,7 +382,7 @@ function home(){
       const nb=o.bill,bs=nb&&billStatus(nb),late=bs&&bs.left>0&&nb.dueDate&&nb.dueDate<today();
       sub=`<span class="${late?"neg":""}">${c.nocount?(nb&&bs.left>0?"Bill "+fmtP(bs.left,b.cur):"No bill due"):"Still to pay "+fmtP(o.total,b.cur)}${nb&&bs.left>0&&nb.dueDate?`, bill ${late?"overdue since":"due by"} ${shortDate(nb.dueDate)}`:""}</span>${o.limit?`<span class="${o.avail<0?"neg":""}">${fmtP(o.avail,b.cur)} of ${fmtP(o.limit,b.cur)} available</span>`:""}${c.nocount?"":`<span>${st.done?"Fee waived this year":"Fee year ends "+longDate(st.fy.end)}</span>`}`;
       bar=c.nocount?(o.limit?`<div class="bar"><i style="width:${Math.min(100,Math.max(0,o.total/o.limit*100)).toFixed(1)}%"></i></div>`:""):`<div class="bar"><i style="width:${Math.min(100,st.count/c.target*100).toFixed(1)}%"></i></div>`}
-    return `<button class="book" style="--h:${+b.hue||230}" data-a="open" data-id="${esc(b.id)}">
+    return `<button class="book" style="--h:${+b.hue||230}" data-a="open" data-id="${esc(b.id)}" data-sort="book">
       <span class="book-name">${esc(b.name)} ${b.type==="card"&&b.card&&b.card.last4?`<span class="pill">•••• ${esc(b.card.last4)}</span>`:""}${b.cloud&&b.cloud.members&&b.cloud.members.length>1?'<span class="pill">Shared</span>':""}</span>
       <span class="book-total num">${total}<small>${cap}</small></span><span class="book-sub">${sub}</span>${bar}</button>`}).join("");
   return `<header class="hero"><canvas id="globe" aria-hidden="true"></canvas>
@@ -377,13 +390,60 @@ function home(){
     ${ui.canInstall?'<button class="btn-ghost" data-a="install">Install app</button>':""}</div></header>
   ${syncBar()}
   <section><div class="sec-head"><h2>Your khatas</h2><button class="link" data-a="import">Import</button></div>
-    ${S.books.length?`<div class="tabs htabs" role="tablist">${HT.map(([t,n])=>{const k=S.books.filter(b=>b.type===t).length;return `<button role="tab" aria-pressed="${ui.htab===t}" aria-selected="${ui.htab===t}" data-a="htab" data-t="${t}">${n}${k?` <span class="cnt">${k}</span>`:""}</button>`}).join("")}</div>`:""}
-    ${cards?`<div class="books">${cards}</div>`:S.books.length?(()=>{const h={personal:[205,"Start a daily ledger","Log your spending against a monthly budget"],trip:[160,"Start a trip","Split costs with friends and see who owes whom"],card:[330,"Add a credit card","Bills, due dates, limit and the yearly fee waiver"]}[ui.htab];
+    ${S.books.length?`<div class="tabs htabs" role="tablist">${HT.map(([t,n])=>{const k=S.books.filter(b=>b.type===t).length;return `<button role="tab" aria-pressed="${ui.htab===t}" aria-selected="${ui.htab===t}" data-a="htab" data-t="${t}" data-sort="tab">${n}${k?` <span class="cnt">${k}</span>`:""}</button>`}).join("")}</div>`:""}
+    ${S.books.length&&!dragHintSeen()?`<p class="muted hint">Hold a khata or a tab, then drag it to move it.</p>`:""}
+    ${cards?`<div class="books">${cards}</div>`:S.books.length?(()=>{const h={loan:[45,"Start a loan khata","Track money you lend or borrow, and who still owes what"],personal:[205,"Start a daily ledger","Log your spending against a monthly budget"],trip:[160,"Start a trip","Split costs with friends and see who owes whom"],card:[330,"Add a credit card","Bills, due dates, limit and the yearly fee waiver"]}[ui.htab];
       return `<div class="starts"><button class="start" style="--h:${h[0]}" data-a="newbook" data-t="${ui.htab}"><b>${h[1]}</b><span>${h[2]}</span></button></div>`})():`<p class="muted" style="margin:0 0 4px">A khata keeps one set of expenses together. Start one:</p><div class="starts">
       <button class="start" style="--h:160" data-a="newbook" data-t="trip"><b>Trip with friends</b><span>Split costs and see who owes whom</span></button>
       <button class="start" style="--h:205" data-a="newbook" data-t="personal"><b>Daily expenses</b><span>Log your spending against a monthly budget</span></button>
-      <button class="start" style="--h:330" data-a="newbook" data-t="card"><b>Credit card</b><span>Bills, due dates and the yearly fee waiver</span></button></div>`}</section>
+      <button class="start" style="--h:330" data-a="newbook" data-t="card"><b>Credit card</b><span>Bills, due dates and the yearly fee waiver</span></button>
+      <button class="start" style="--h:45" data-a="newbook" data-t="loan"><b>Lending and borrowing</b><span>Money you lent or borrowed, and who still owes what</span></button></div>`}</section>
   ${cards?`<button class="fab" data-a="newbook" data-t="${ui.htab}">+ New ${HT.find(h=>h[0]===ui.htab)[2]}</button>`:""}`}
+
+const HTABS={personal:["personal","Daily","daily ledger"],trip:["trip","Trips","trip"],card:["card","Cards","card"],loan:["loan","Loans","loan khata"]};
+function tabOrder(){let o=[];try{o=JSON.parse(localStorage.getItem("khoroch.taborder")||"[]")}catch(e){}o=o.filter(t=>HTABS[t]);Object.keys(HTABS).forEach(t=>{if(!o.includes(t))o.push(t)});return o}
+function sortBooks(l){return l.slice().sort((x,y)=>(x.order??1e15+(x.created||0))-(y.order??1e15+(y.created||0)))}
+function dragHintSeen(){try{return localStorage.getItem("khoroch.draghint")==="1"}catch(e){return true}}
+/* ---------- lending and borrowing ---------- */
+const LD={lent:["You lent",1,"lent"],borrowed:["You borrowed",-1,"borrowed"],got:["Got back",-1,"got back"],paid:["You paid back",1,"paid back"]};
+const pkey=n=>String(n||"").trim().toLowerCase();
+function loanSum(b){const P={},t0=today();
+  txOf(b).filter(t=>t.kind==="loan").sort((x,y)=>(x.date||"").localeCompare(y.date||"")||(x.created||0)-(y.created||0)).forEach(t=>{const k=pkey(t.person),p=P[k]||(P[k]={name:t.person,bal:0,n:0,last:"",dues:[]});
+    p.name=t.person;p.bal=r2(p.bal+LD[t.dir][1]*(+t.amount||0));p.n++;if((t.date||"")>p.last)p.last=t.date;if(t.due&&(t.dir==="lent"||t.dir==="borrowed"))p.dues.push(t.due)});
+  const people=Object.values(P).map(p=>{const open=Math.abs(p.bal)>=.005,d=p.dues.filter(x=>x<t0).sort()[0];return Object.assign(p,{over:open&&d?d:"",next:open?p.dues.filter(x=>x>=t0).sort()[0]||"":""})})
+    .sort((x,y)=>(Math.abs(y.bal)>=.005)-(Math.abs(x.bal)>=.005)||Math.abs(y.bal)-Math.abs(x.bal)||(y.last||"").localeCompare(x.last||""));
+  return{people,owed:r2(people.reduce((a,p)=>a+(p.bal>0?p.bal:0),0)),owe:r2(people.reduce((a,p)=>a+(p.bal<0?-p.bal:0),0))}}
+function loanRow(b,t){const L=LD[t.dir];return `<button class="tx" data-a="edittx" data-id="${esc(t.id)}"><span class="cat ld ld-${t.dir}">${ico(L[1]>0&&t.dir==="lent"||t.dir==="paid"?I.right:I.left)}</span><span class="d">${esc(ui.person?L[0]:t.person+", "+L[2])}</span><span class="a num ${t.dir==="lent"||t.dir==="got"?"":"neg"}">${fmtP(t.amount,b.cur)}</span>
+  <span class="s">${new Date(t.date+"T00:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}${t.due?", due "+shortDate(t.due):""}${t.note?", "+esc(t.note):""}</span></button>`}
+function loanView(b){const L=loanSum(b),l=txOf(b).filter(t=>t.kind==="loan").sort((x,y)=>(y.date||"").localeCompare(x.date||"")||(y.created||0)-(x.created||0));
+  const tot=`<section class="totals loan-tot"><div><span class="eyebrow">Owed to you</span><b class="big num pos">${fmtP(L.owed,b.cur)}</b></div><div><span class="eyebrow">You owe</span><b class="big num ${L.owe>0?"neg":""}">${fmtP(L.owe,b.cur)}</b></div></section>`;
+  if(ui.person!=null){const p=L.people.find(x=>pkey(x.name)===ui.person);if(!p){ui.person=null;return loanView(b)}
+    const mine=l.filter(t=>pkey(t.person)===ui.person),open=Math.abs(p.bal)>=.005;
+    return `${topbar(b)}<button class="link" data-a="lperson" data-p="" style="align-self:flex-start">${ico(I.back)} All people</button>
+      <section class="totals"><span class="eyebrow">${esc(p.name)}</span><b class="big num ${p.bal<0?"neg":p.bal>0?"pos":""}">${open?fmtP(Math.abs(p.bal),b.cur):"Settled"}</b>
+      <div class="sub num"><span>${!open?"Nothing owed either way":p.bal>0?"Owes you":"You owe them"}</span>${p.over?`<span class="neg">Was due ${longDate(p.over)}</span>`:p.next?`<span>Due ${longDate(p.next)}</span>`:""}</div>
+      ${open?`<div class="actions" style="margin:4px 0 0"><button class="btn primary" data-a="loanadd" data-d="${p.bal>0?"got":"paid"}" data-p="${esc(p.name)}" data-amt="${Math.abs(p.bal)}">${p.bal>0?"Got money back":"Paid them back"}</button></div>`:""}</section>
+      <div class="loan-acts"><button class="btn" data-a="loanadd" data-d="lent" data-p="${esc(p.name)}">Lend more</button><button class="btn" data-a="loanadd" data-d="borrowed" data-p="${esc(p.name)}">Borrow more</button></div>
+      <section><h2>History</h2><div class="card ruled">${mine.map(t=>loanRow(b,t)).join("")}</div></section>`}
+  if(!l.length)return `${topbar(b)}${tot}<div class="empty">Nothing here yet. Tap <b>Add</b> when you lend money to someone or borrow from them.</div><button class="fab" data-a="addtx">+ Add</button>`;
+  return `${topbar(b)}${tot}
+    <section><h2>People</h2><div class="card ruled">${L.people.map(p=>{const open=Math.abs(p.bal)>=.005;return `<button class="tx" data-a="lperson" data-p="${esc(pkey(p.name))}"><span class="cat av">${esc((p.name.trim()[0]||"?").toUpperCase())}</span><span class="d">${esc(p.name)}</span><span class="a num ${p.bal<0?"neg":p.bal>0?"pos":"muted"}">${open?fmtP(Math.abs(p.bal),b.cur):"Settled"}</span>
+      <span class="s">${!open?`${p.n} ${p.n===1?"entry":"entries"}`:p.bal>0?"Owes you":"You owe"}${p.over?`, <span class="neg">was due ${shortDate(p.over)}</span>`:p.next?`, due ${shortDate(p.next)}`:""}</span></button>`}).join("")}</div></section>
+    <section><h2>History</h2><div class="card ruled">${l.slice(0,60).map(t=>loanRow(b,t)).join("")}</div></section>
+    <button class="fab" data-a="addtx">+ Add</button>`}
+function loanSheet(){const b=curBook(),names=loanSum(b).people.map(p=>p.name),d=F.dir;
+  let h=head(F.id?"Edit entry":"Lend or borrow");
+  h+=`<div class="seg dir">${Object.keys(LD).map(k=>`<button type="button" data-a="ldir" data-d="${k}" aria-pressed="${d===k}">${LD[k][0]}</button>`).join("")}</div>
+  <label class="f">${d==="lent"?"Who did you lend to?":d==="borrowed"?"Who did you borrow from?":d==="got"?"Who paid you back?":"Who did you pay back?"}<input id="f-person" data-f="person" maxlength="60" placeholder="Name" autocomplete="off" value="${esc(F.person)}"></label>
+  ${names.length?`<div class="chips chipwrap">${names.slice(0,12).map(n=>`<button type="button" class="chip" data-a="lpick" data-p="${esc(n)}" aria-pressed="${pkey(F.person)===pkey(n)}">${esc(n)}</button>`).join("")}</div>`:""}
+  <label class="f">Amount (${esc(b.cur)})<input class="amount num" id="f-amount" data-f="amount" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${esc(F.amount)}"></label>
+  <div class="grid2"><label class="f">Date<input id="f-date" data-f="date" type="date" value="${esc(F.date)}"></label>
+  ${d==="lent"||d==="borrowed"?`<label class="f">Pay back by (optional)<input id="f-due" data-f="due" type="date" value="${esc(F.due||"")}"></label>`:"<span></span>"}</div>
+  <label class="f">Note (optional)<input id="f-note" data-f="note" maxlength="160" placeholder="bKash, cash, what it was for" value="${esc(F.note)}"></label>
+  <div class="err" id="err" role="alert"></div>${ui.sheet.confirm?`<div class="confirm">Delete this entry?<div class="actions"><button class="btn danger" style="flex:1" data-a="deltx-yes">Delete</button><button class="btn" data-a="noconfirm">Keep</button></div></div>`:""}
+  <div class="actions">${F.id?`<button class="btn danger" data-a="confirm">Delete</button>`:""}<button class="btn primary" data-a="saveloan">Save</button></div>`;
+  return h}
+function newLoanF(dir,person,amt){F={id:null,kind:"loan",dir:dir||"lent",person:person||"",amount:amt?String(amt):"",date:today(),due:"",note:"",receipt:null,filled:{}}}
 
 function topbar(b){return `<div class="top"><button class="iconbtn" data-a="back" aria-label="Back">${ico(I.back)}</button><h1>${esc(b.name)}</h1>
   <button class="iconbtn" data-a="share" aria-label="Share or export">${ico(I.share)}</button><button class="iconbtn" data-a="editbook" aria-label="Edit">${ico(I.edit)}</button></div>`}
@@ -439,7 +499,7 @@ function ledger(b){const m=ui.month,l=txOf(b).filter(t=>(t.date||"").startsWith(
   <button class="fab" data-a="addtx">+ Add expense</button>`}
 
 function render(nav){const b=curBook();if(ui.view!=="home"&&!b)ui.view="home";ui.isoData={};
-  const el=$("#app");el.innerHTML=ui.view==="home"?home():b.type==="trip"?trip(b):b.type==="card"?cardView(b):ledger(b);
+  const el=$("#app");el.innerHTML=ui.view==="home"?home():b.type==="trip"?trip(b):b.type==="card"?cardView(b):b.type==="loan"?loanView(b):ledger(b);
   el.classList.remove("enter");if(nav){void el.offsetWidth;el.classList.add("enter");scrollTo(0,0)}
   drawCharts(false);
   drawGlobe(performance.now())}
@@ -449,7 +509,7 @@ function drawCharts(still){document.querySelectorAll("canvas[data-iso]").forEach
 /* ---------- sheets ---------- */
 const pick=(items,sel,a)=>`<div class="pick">${items.map(m=>`<button type="button" data-a="${a}" data-id="${esc(m.id)}" aria-pressed="${Array.isArray(sel)?sel.includes(m.id):sel===m.id}">${esc(m.name)}</button>`).join("")}</div>`;
 const head=t=>`<div class="sheet-head"><h2>${t}</h2><button class="x" data-a="close" aria-label="Close">×</button></div>`;
-function txSheet(){const b=curBook(),trip=b.type==="trip",groups=b.members.some(m=>m.heads>1);
+function txSheet(){if(curBook().type==="loan")return loanSheet();const b=curBook(),trip=b.type==="trip",groups=b.members.some(m=>m.heads>1);
   const common=`<label class="f">Amount (${esc(b.cur)})<input class="amount num${F.filled&&F.filled.amount?" filled":""}" id="f-amount" data-f="amount" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${esc(F.amount)}"></label>`;
   let h=head(F.id?"Edit entry":F.kind==="settle"?"Record a payback":"Add expense");
   if(trip&&!F.id)h+=`<div class="seg"><button data-a="kind" data-k="expense" aria-pressed="${F.kind==="expense"}">Expense</button><button data-a="kind" data-k="settle" aria-pressed="${F.kind==="settle"}">Paid back</button></div>`;
@@ -493,12 +553,12 @@ function preview(){const p=$("#preview");if(!p||!F)return;const b=curBook(),amt=
   p.innerHTML=h}
 
 function bookSheet(){const used=new Set();if(B.id)txOf(B).forEach(t=>{Object.keys(t.payers||{}).forEach(k=>used.add(k));Object.keys((t.split||{}).custom||{}).forEach(k=>used.add(k));((t.split||{}).among||[]).forEach(k=>used.add(k));if(t.from)used.add(t.from);if(t.to)used.add(t.to)});
-  let h=head(B.id?"Edit "+(B.type==="trip"?"trip":B.type==="card"?"card":"ledger"):"New khata");
-  if(!B.id)h+=`<div class="seg"><button data-a="btype" data-t="trip" aria-pressed="${B.type==="trip"}">Trip</button><button data-a="btype" data-t="personal" aria-pressed="${B.type==="personal"}">Daily ledger</button><button data-a="btype" data-t="card" aria-pressed="${B.type==="card"}">Credit card</button></div>`;
-  h+=`<label class="f">Name<input id="b-name" data-b="name" maxlength="60" placeholder="${B.type==="trip"?"Bandarban, December":B.type==="card"?"EBL Visa Platinum":"Daily expenses"}" value="${esc(B.name)}"></label>
+  let h=head(B.id?"Edit "+(B.type==="trip"?"trip":B.type==="card"?"card":B.type==="loan"?"loan khata":"ledger"):"New khata");
+  if(!B.id)h+=`<div class="seg btypes"><button data-a="btype" data-t="trip" aria-pressed="${B.type==="trip"}">Trip</button><button data-a="btype" data-t="personal" aria-pressed="${B.type==="personal"}">Daily ledger</button><button data-a="btype" data-t="card" aria-pressed="${B.type==="card"}">Credit card</button><button data-a="btype" data-t="loan" aria-pressed="${B.type==="loan"}">Loans</button></div>`;
+  h+=`<label class="f">Name<input id="b-name" data-b="name" maxlength="60" placeholder="${B.type==="trip"?"Bandarban, December":B.type==="card"?"EBL Visa Platinum":B.type==="loan"?"Lending and borrowing":"Daily expenses"}" value="${esc(B.name)}"></label>
   <div class="grid2"><label class="f">Currency<select id="b-cur" data-b="cur">${CURS.map(c=>`<option value="${c[0]}"${B.cur===c[0]?" selected":""}>${c[0]} ${c[1]}</option>`).join("")}</select></label>
   ${B.type==="card"?`<div class="grid2"><label class="f">Last 4 digits (optional)<input id="b-last4" class="num" data-b="card.last4" inputmode="numeric" maxlength="4" placeholder="1234" value="${esc(B.card.last4)}"></label>
-    <label class="f">Credit limit (${esc(B.cur)})<input id="b-limit" class="num" data-b="card.limit" type="number" inputmode="decimal" min="0" step="any" placeholder="Optional" value="${esc(B.card.limit||"")}"></label></div>`:B.type==="trip"?`<label class="f">Start date<input id="b-start" data-b="start" type="date" value="${esc(B.start||"")}"></label>`:`<label class="f">Monthly budget (optional)<input id="b-budget" class="num" data-b="budget" type="number" inputmode="decimal" min="0" placeholder="0" value="${esc(B.budget||"")}"></label>`}</div>`;
+    <label class="f">Credit limit (${esc(B.cur)})<input id="b-limit" class="num" data-b="card.limit" type="number" inputmode="decimal" min="0" step="any" placeholder="Optional" value="${esc(B.card.limit||"")}"></label></div>`:B.type==="trip"?`<label class="f">Start date<input id="b-start" data-b="start" type="date" value="${esc(B.start||"")}"></label>`:B.type==="loan"?"":`<label class="f">Monthly budget (optional)<input id="b-budget" class="num" data-b="budget" type="number" inputmode="decimal" min="0" placeholder="0" value="${esc(B.budget||"")}"></label>`}</div>`;
   if(B.type==="card")h+=cardRulesFields();
   if(B.type==="trip")h+=`<div class="f">Who is on the trip?<span style="font-weight:400">Add each person, or a couple or family as one entry and set how many people it covers.</span>
     ${B.members.map((m,i)=>`<div class="mem"><input id="b-m-${i}" data-bm="${i}" maxlength="40" placeholder="Name" aria-label="Member name" value="${esc(m.name)}">
@@ -514,8 +574,8 @@ function shareSheet(){const b=curBook(),o=ui.sheet.out;
     <div class="actions"><button class="btn primary" data-a="copy">Copy</button>${navigator.share&&!IN_ARTIFACT&&o.shareText?'<button class="btn" data-a="nshare">Send</button>':""}${o.filename&&!IN_ARTIFACT?'<button class="btn" data-a="savefile">Save file</button>':""}</div>
     <button class="link" data-a="shback" style="align-self:center">Other options</button>`;
   const opt=(k,i,t,d)=>`<button class="opt" data-a="sh" data-k="${k}">${ico(i)}<span><b>${t}</b><span>${d}</span></span></button>`;
-  return head("Share and export")+(b.type==="trip"?opt("summary",I.text,"Summary message","Totals and who pays whom, ready for WhatsApp"):b.type==="card"?opt("summary",I.text,"Fee waiver summary","Progress and month-by-month counts as a message"):opt("summary",I.text,"Month summary","This month's total and categories as a message"))
-    +opt("code",I.copy,b.type==="trip"?"Trip code":b.type==="card"?"Card code":"Ledger code","Paste it in a chat. Anyone with Khoroch can import the full book.")
+  return head("Share and export")+(b.type==="trip"?opt("summary",I.text,"Summary message","Totals and who pays whom, ready for WhatsApp"):b.type==="card"?opt("summary",I.text,"Fee waiver summary","Progress and month-by-month counts as a message"):b.type==="loan"?opt("summary",I.text,"Who owes what","Every open balance as a message"):opt("summary",I.text,"Month summary","This month's total and categories as a message"))
+    +opt("code",I.copy,b.type==="trip"?"Trip code":b.type==="card"?"Card code":b.type==="loan"?"Loan khata code":"Ledger code","Paste it in a chat. Anyone with Khoroch can import the full book.")
     +opt("csv",I.table,"Spreadsheet (CSV)","Every entry, for Excel or Google Sheets")
     +(SYNC.cfg&&!b.sample?opt("invite",I.people,"Invite people to edit",SYNC.user?(b.cloud&&b.cloud.members&&b.cloud.members.length>1?`Shared with ${b.cloud.members.length-1} ${b.cloud.members.length===2?"person":"people"}. Send the link to add more.`:"Send a link. Everyone who joins can add and edit entries live."):"Sign in first, then send a link to your trip mates"):"")
     +opt("all",I.file,"Back up everything","All your khatas in one code or file")+'<p class="muted" style="margin:0;font-size:.88rem">Bill photos stay on this phone. They are not included in codes, backups or CSV files.</p>'}
@@ -543,19 +603,20 @@ const isDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||"");
 const sid=s=>String(s).replace(/[^\w.\-:@+]/g,"").slice(0,40);
 const numMap=o=>{const r={};if(o&&typeof o==="object")for(const k in o){const v=+o[k];if(isFinite(v))r[sid(k)]=v}return r};
 function clean(d){if(!d||!Array.isArray(d.books))throw new Error("shape");
-  const books=d.books.filter(b=>b&&b.id&&typeof b.name==="string").map(b=>({id:sid(b.id),type:b.type==="personal"||b.type==="card"?b.type:"trip",name:b.name.slice(0,80),cur:String(b.cur||"৳").slice(0,4),
-    hue:Math.round(+b.hue||230)%360,start:isDate(b.start)?b.start:"",end:isDate(b.end)?b.end:"",budget:Math.max(0,+b.budget||0),created:+b.created||Date.now(),
+  const books=d.books.filter(b=>b&&b.id&&typeof b.name==="string").map(b=>({id:sid(b.id),type:["personal","card","loan"].includes(b.type)?b.type:"trip",name:b.name.slice(0,80),cur:String(b.cur||"৳").slice(0,4),
+    hue:Math.round(+b.hue||230)%360,start:isDate(b.start)?b.start:"",end:isDate(b.end)?b.end:"",budget:Math.max(0,+b.budget||0),created:+b.created||Date.now(),...(isFinite(+b.order)&&b.order!==null&&b.order!==""?{order:+b.order}:{}),
     members:(Array.isArray(b.members)?b.members:[]).filter(m=>m&&m.id).map(m=>({id:sid(m.id),name:String(m.name||"").slice(0,60),heads:Math.max(1,Math.min(99,Math.round(+m.heads||1)))}))}));
   books.forEach((nb,i)=>{const b=d.books.filter(b=>b&&b.id&&typeof b.name==="string")[i];if(nb.type!=="card")return;const c=b.card||{},r={};Object.keys(CT).forEach(k=>r[k]=c.rules&&k in c.rules?!!c.rules[k]:CT_DEFAULT[k]);
     nb.card={last4:String(c.last4||"").replace(/\D/g,"").slice(-4),target:Math.max(1,Math.min(365,Math.round(+c.target||24))),feeStart:/^\d{2}-\d{2}$/.test(c.feeStart||"")?c.feeStart:"01-01",minAmt:Math.max(0,+c.minAmt||0),fee:Math.max(0,+c.fee||0),limit:Math.max(0,+c.limit||0),rules:r};if(c.nocount)nb.card.nocount=true;
     nb.statements=(Array.isArray(b.statements)?b.statements:[]).filter(x=>x&&x.id).slice(0,500).map(x=>({id:sid(x.id),file:String(x.file||"").slice(0,120),from:isDate(x.from)?x.from:"",to:isDate(x.to)?x.to:"",count:Math.max(0,Math.round(+x.count||0)),total:Math.max(0,+x.total||0),added:+x.added||Date.now(),
       due:Math.max(0,+x.due||0),min:Math.max(0,+x.min||0),dueDate:isDate(x.dueDate)?x.dueDate:"",paid:Math.max(0,+x.paid||0),paidOn:isDate(x.paidOn)?x.paidOn:"",stmtDate:isDate(x.stmtDate)?x.stmtDate:""}))});
   const ids=new Set(books.map(b=>b.id));
-  const tx=(Array.isArray(d.tx)?d.tx:[]).filter(t=>t&&ids.has(sid(t.bookId))&&isFinite(+t.amount)).map(t=>{const o={id:sid(t.id||uid()),bookId:sid(t.bookId),kind:t.kind==="settle"?"settle":"expense",amount:Math.abs(+t.amount),
+  const tx=(Array.isArray(d.tx)?d.tx:[]).filter(t=>t&&ids.has(sid(t.bookId))&&isFinite(+t.amount)).map(t=>{const o={id:sid(t.id||uid()),bookId:sid(t.bookId),kind:t.kind==="settle"||t.kind==="loan"?t.kind:"expense",amount:Math.abs(+t.amount),
       desc:String(t.desc||"").slice(0,160),cat:CATS[t.cat]?t.cat:"other",date:isDate(t.date)?t.date:today(),note:String(t.note||"").slice(0,200),created:+t.created||Date.now()};if(typeof t.receipt==="string"&&t.receipt)o.receipt=sid(t.receipt);
     if(CT[t.ctype])o.ctype=t.ctype;if(t.count===true||t.count===false)o.count=t.count;if(typeof t.stmt==="string"&&t.stmt)o.stmt=sid(t.stmt);
     if(typeof t.via==="string"&&t.via)o.via=t.via==="cash"||t.via==="debit"?t.via:sid(t.via);if(typeof t.link==="string"&&t.link){o.link=sid(t.link);o.linkBook=sid(t.linkBook||"")}
     if(o.kind==="settle"){o.from=sid(t.from||"");o.to=sid(t.to||"")}
+    else if(o.kind==="loan"){o.dir=LD[t.dir]?t.dir:"lent";o.person=String(t.person||"").trim().slice(0,60)||"Someone";if(isDate(t.due))o.due=t.due}
     else if(t.payers){o.payers=numMap(t.payers);const sp=t.split||{};o.split={mode:["heads","equal","custom"].includes(sp.mode)?sp.mode:"heads"};
       if(o.split.mode==="custom")o.split.custom=numMap(sp.custom);else o.split.among=(Array.isArray(sp.among)?sp.among:[]).map(sid)}
     return o});
@@ -565,6 +626,8 @@ async function doImport(text){try{const d=clean(await decode(text));if(!d.books.
     S.tx.push(...d.tx);save();closeSheet();ui.view="home";render(true);toast(names.length===1?names[0]:names.length+" khatas imported")}
   catch(e){err("That isn't a Khoroch code or backup file. Copy the whole code and try again.")}}
 function summaryText(b){
+  if(b.type==="loan"){const L=loanSum(b),open=L.people.filter(p=>Math.abs(p.bal)>=.005);
+    return `*${b.name}*\nOwed to you: ${fmtP(L.owed,b.cur)}\nYou owe: ${fmtP(L.owe,b.cur)}\n\n${open.map(p=>`• ${p.name}: ${p.bal>0?"owes you "+fmtP(p.bal,b.cur):"you owe "+fmtP(-p.bal,b.cur)}${p.over?" (was due "+longDate(p.over)+")":""}`).join("\n")||"• Everything is settled"}`}
   if(b.type==="card"){const st=cardStats(b,ui.fy||0),c=st.c;
     const nb=nextBill(b),bs=nb&&billStatus(nb);
     return `*${b.name}*\n${nb?`Bill: ${fmt(nb.due,b.cur)}${nb.dueDate?", pay by "+longDate(nb.dueDate):""}. ${bs.txt}\n`:""}Fee year ${longDate(st.fy.start)} to ${longDate(st.fy.end)}\n${c.nocount?"":`Qualifying transactions: ${st.count} of ${c.target}. ${st.line}\n`}Spent: ${fmt(st.spend,b.cur)} across ${st.list.length} ${st.list.length===1?"transaction":"transactions"}\n\nEach month:\n${st.months.filter(m=>m.cnt||m.not).map(m=>`• ${monthLabel(m.ym)}: ${c.nocount?(m.cnt+m.not)+(m.cnt+m.not===1?" transaction":" transactions"):m.cnt+" counted, "+m.not+" not counted"}, ${fmt(m.amt,b.cur)}`).join("\n")||"• No transactions yet"}`}
@@ -573,6 +636,9 @@ function summaryText(b){
   const l=txOf(b).filter(t=>(t.date||"").startsWith(ui.month)),tot=spent(l);
   return `*${b.name}, ${monthLabel(ui.month)}*\nSpent: ${fmt(tot,b.cur)}${b.budget?" of "+fmt(b.budget,b.cur)+" budget":""}\n\n${byCat(l).map(([k,v])=>`• ${catName(k)}: ${fmt(v,b.cur)}`).join("\n")||"No entries"}`}
 function csv(b){const q=v=>{v=String(v??"");if(/^[=+\-@]/.test(v))v="'"+v;return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v},t=b.type==="trip";
+  if(b.type==="loan"){const rows=[["Date","Person","Type","Amount","Due","Note"]];
+    txOf(b).sort((x,y)=>(x.date||"").localeCompare(y.date||"")).forEach(x=>rows.push([x.date,x.person,LD[x.dir][0],x.amount,x.due||"",x.note]));
+    return rows.map(r=>r.map(q).join(",")).join("\n")}
   if(b.type==="card"){const c=cardOf(b),rows=[["Date","Description","Amount","Transaction type","Category","Counts toward waiver","Reason","Note"]];
     txOf(b).sort((x,y)=>(x.date||"").localeCompare(y.date||"")).forEach(x=>{const v=verdict(x,c,b.cur);rows.push([x.date,x.desc,x.amount,CT[x.ctype||"purchase"][0],catName(x.cat),v.ok?"Yes":"No",v.why,x.note])});
     return rows.map(r=>r.map(q).join(",")).join("\n")}
@@ -583,20 +649,61 @@ function csv(b){const q=v=>{v=String(v??"");if(/^[=+\-@]/.test(v))v="'"+v;return
   return rows.map(r=>r.map(q).join(",")).join("\n")}
 const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,30)||"book";
 
+/* ---------- drag to reorder ---------- */
+const DR={};
+function dragEnd(commit){const d=DR.cur;DR.cur=null;clearTimeout(DR.timer);if(!d)return;
+  d.items.forEach(el=>{el.style.transform="";el.style.transition="";el.classList.remove("dragging","drag-shift")});document.documentElement.classList.remove("is-dragging");
+  if(!commit||!d.active||d.to===d.from)return;
+  try{localStorage.setItem("khoroch.draghint","1")}catch(e){}
+  if(d.kind==="tab"){const o=d.items.map(el=>el.dataset.t),[m]=o.splice(d.from,1);o.splice(d.to,0,m);const all=tabOrder().filter(t=>!o.includes(t));try{localStorage.setItem("khoroch.taborder",JSON.stringify(o.concat(all)))}catch(e){}}
+  else{const ids=d.items.map(el=>el.dataset.id),[m]=ids.splice(d.from,1);ids.splice(d.to,0,m);ids.forEach((id,i)=>{const b=S.books.find(x=>x.id===id);if(b)b.order=i});save()}
+  render();toast(d.kind==="tab"?"Tabs rearranged":"Order saved")}
+document.addEventListener("pointerdown",e=>{if(DR.cur||e.button>0)return;const el=e.target.closest("[data-sort]");if(!el||ui.view!=="home"||ui.sheet)return;
+  const kind=el.dataset.sort,items=[...document.querySelectorAll(`[data-sort="${kind}"]`)];if(items.length<2)return;
+  const H=kind==="tab";DR.cur={kind,el,items,from:items.indexOf(el),to:items.indexOf(el),x:e.clientX,y:e.clientY,sy:scrollY,id:e.pointerId,active:false,H};
+  DR.timer=setTimeout(()=>{const d=DR.cur;if(!d)return;d.active=true;d.rects=items.map(i=>i.getBoundingClientRect());d.sy=scrollY;
+    const r=d.rects;d.step=H?(r[1].left-r[0].left):(items.length>1?r[1].top-r[0].top:r[0].height);
+    try{el.setPointerCapture(d.id)}catch(_){}el.classList.add("dragging");document.documentElement.classList.add("is-dragging");if(navigator.vibrate)try{navigator.vibrate(12)}catch(_){}
+    items.forEach(i=>{if(i!==el)i.classList.add("drag-shift")})},380)},{passive:true});
+document.addEventListener("pointermove",e=>{const d=DR.cur;if(!d||e.pointerId!==d.id)return;
+  if(!d.active){if(Math.hypot(e.clientX-d.x,e.clientY-d.y)>8)dragEnd(false);return}
+  if(!d.H){if(e.clientY<70)scrollBy(0,-8);else if(e.clientY>innerHeight-70)scrollBy(0,8)}
+  const dx=e.clientX-d.x,dy=e.clientY-d.y+(scrollY-d.sy),mv=d.H?dx:dy;d.el.style.transform=d.H?`translateX(${dx}px)`:`translateY(${dy}px)`;
+  const me=d.rects[d.from],c=(d.H?me.left+me.width/2:me.top+me.height/2)+mv;let to=d.from;
+  d.rects.forEach((r,i)=>{const ci=d.H?r.left+r.width/2:r.top+r.height/2;if(i>d.from&&c>ci)to=i;if(i<d.from&&c<ci&&to>=d.from)to=i});
+  if(to<d.from)to=d.rects.findIndex((r,i)=>i<d.from&&c<(d.H?r.left+r.width/2:r.top+r.height/2));
+  d.to=to<0?d.from:to;const sz=d.H?me.width+(d.rects[1]?d.rects[1].left-d.rects[0].right:0):me.height+(d.rects[1]?d.rects[1].top-d.rects[0].bottom:12);
+  d.items.forEach((it,i)=>{if(it===d.el)return;let s=0;if(d.to>d.from&&i>d.from&&i<=d.to)s=-sz;if(d.to<d.from&&i<d.from&&i>=d.to)s=sz;it.style.transform=s?(d.H?`translateX(${s}px)`:`translateY(${s}px)`):""})});
+document.addEventListener("touchmove",e=>{if(DR.cur&&DR.cur.active)e.preventDefault()},{passive:false});
+document.addEventListener("pointerup",e=>{const d=DR.cur;if(!d)return;if(d.active){DR.eat=true;setTimeout(()=>DR.eat=false,350)}dragEnd(true)});
+document.addEventListener("pointercancel",()=>{if(DR.cur&&!DR.cur.active)dragEnd(false)});
+document.addEventListener("click",e=>{if(DR.eat){e.stopPropagation();e.preventDefault();DR.eat=false}},true);
+document.addEventListener("contextmenu",e=>{if(e.target.closest("[data-sort]"))e.preventDefault()});
+
 /* ---------- actions ---------- */
 function newF(b){const ids=b.members.map(m=>m.id);F={id:null,kind:"expense",amount:"",desc:"",cat:"food",date:today(),note:"",payer:ids[0],multi:false,pay:{},
   mode:b.members.some(m=>m.heads>1)?"heads":"equal",among:ids.slice(),custom:{},from:ids[1]||ids[0],to:ids[0],receipt:null,receiptUrl:"",newReceipt:null,removeReceipt:false,scan:null,filled:{},catTouched:false,scanTok:0,ctype:"purchase",countMode:"auto",via:b.type==="card"?"":viaPref(b.id)||"cash"};
   if(b.type==="trip"&&b.start&&today()<b.start)F.date=b.start}
 const A={
+  loanadd(d){newLoanF(d.d,d.p,d.amt);openSheet("tx");setTimeout(()=>{const i=$(d.p?"#f-amount":"#f-person");i&&i.focus()},80)},
+  ldir(d){F.dir=d.d;if(d.d!=="lent"&&d.d!=="borrowed")F.due="";drawSheet()},
+  lpick(d){F.person=d.p;drawSheet();setTimeout(()=>{const i=$("#f-amount");i&&!F.amount&&i.focus()},40)},
+  lperson(d){ui.person=d.p===""?null:d.p;render(true)},
+  saveloan(){const b=curBook(),amt=r2(F.amount),name=String(F.person||"").trim().replace(/\s+/g," ");
+    if(!name)return err("Enter the person's name.");if(!(amt>0))return err("Enter an amount more than zero.");if(!isDate(F.date))return err("Pick a date.");
+    const ex=loanSum(b).people.find(p=>pkey(p.name)===pkey(name)),t={id:F.id||uid(),bookId:b.id,kind:"loan",dir:F.dir,person:ex?ex.name:name,amount:amt,date:F.date,note:String(F.note||"").trim(),created:F.created||Date.now()};
+    if(isDate(F.due)&&(F.dir==="lent"||F.dir==="borrowed"))t.due=F.due;
+    const i=S.tx.findIndex(x=>x.id===t.id);if(i>=0)S.tx[i]=t;else S.tx.push(t);save();const was=!!F.id;closeSheet();render();toast(was?"Saved":LD[t.dir][0]+" "+fmtP(amt,b.cur),true)},
   htab(d){ui.htab=d.t;ui.htabPicked=true;try{localStorage.setItem("khoroch.hometab",d.t)}catch(e){}render()},
-  open(d){const ob=S.books.find(x=>x.id===d.id);if(ob){ui.htab=ob.type;try{localStorage.setItem("khoroch.hometab",ob.type)}catch(e){}}ui.view="book";ui.bookId=d.id;ui.tab="overview";ui.fy=0;ui.filter="All";ui.month=today().slice(0,7);history.pushState({k:"book"},"");render(true)},
+  open(d){const ob=S.books.find(x=>x.id===d.id);if(ob){ui.htab=ob.type;try{localStorage.setItem("khoroch.hometab",ob.type)}catch(e){}}ui.view="book";ui.bookId=d.id;ui.person=null;ui.tab="overview";ui.fy=0;ui.filter="All";ui.month=today().slice(0,7);history.pushState({k:"book"},"");render(true)},
   back(){if(history.state&&history.state.k==="book")history.back();else{ui.view="home";render(true)}},
   tab(d){ui.tab=d.t;render()},filter(d){ui.filter=d.c;render()},
   month(d){const x=new Date(ui.month+"-01T12:00:00");x.setMonth(x.getMonth()+ +d.d);ui.month=iso10(x).slice(0,7);render()},
   install(){if(ui.canInstall){ui.canInstall.prompt();ui.canInstall=null;render()}},
   close(){closeSheet()},confirm(){ui.sheet.confirm=true;drawSheet();$("#sheet").scrollTop=1e5},noconfirm(){ui.sheet.confirm=false;drawSheet()},
-  addtx(){if(curBook().type==="card"){openSheet("cardadd");return}newF(curBook());if(curBook().type==="personal"&&ui.month!==today().slice(0,7))F.date=ui.month+"-01";openSheet("tx");setTimeout(()=>{const i=$("#f-amount");i&&i.focus()},80)},
-  edittx(d){const b=curBook(),t=S.tx.find(x=>x.id===d.id);if(!t)return;newF(b);Object.assign(F,{id:t.id,kind:t.kind||"expense",amount:String(t.amount),desc:t.desc||"",cat:t.cat||"other",date:t.date,note:t.note||"",created:t.created});
+  addtx(){if(curBook().type==="card"){openSheet("cardadd");return}if(curBook().type==="loan"){A.loanadd({d:"lent",p:ui.person!=null?(loanSum(curBook()).people.find(x=>pkey(x.name)===ui.person)||{}).name:""});return}newF(curBook());if(curBook().type==="personal"&&ui.month!==today().slice(0,7))F.date=ui.month+"-01";openSheet("tx");setTimeout(()=>{const i=$("#f-amount");i&&i.focus()},80)},
+  edittx(d){const b=curBook(),t=S.tx.find(x=>x.id===d.id);if(!t)return;
+    if(b.type==="loan"){newLoanF(t.dir,t.person,t.amount);Object.assign(F,{id:t.id,date:t.date,due:t.due||"",note:t.note||"",created:t.created});openSheet("tx");return}newF(b);Object.assign(F,{id:t.id,kind:t.kind||"expense",amount:String(t.amount),desc:t.desc||"",cat:t.cat||"other",date:t.date,note:t.note||"",created:t.created});
     F.catTouched=true;F.via=t.via||(b.type==="card"?"":"cash");F.link=t.link||"";F.linkBook=t.linkBook||"";if(b.type==="card"){F.ctype=t.ctype||"purchase";F.countMode=t.count===true?"yes":t.count===false?"no":"auto";F.stmt=t.stmt||""}
     if(t.receipt){const rid=t.receipt;F.receipt=rid;rurl(rid).then(u=>{if(F&&F.receipt===rid){F.receiptUrl=u||"";if(!u)F.scan={state:"error",msg:"This bill photo isn't on this phone."};drawSheet()}})}
     if(t.kind==="settle"){F.from=t.from;F.to=t.to}
@@ -647,7 +754,7 @@ const A={
     if(B.type==="trip"){nb.members=B.members.filter(m=>m.name.trim()).map(m=>({id:m.id,name:m.name.trim(),heads:m.heads}));
       if(B.members.some(m=>!m.name.trim())&&B.id&&nb.members.length<B.members.length&&txOf(B).length)return err("Every member needs a name.");
       if(!nb.members.length)return err("Add at least one member.")}
-    if(B.cloud)nb.cloud=B.cloud;const i=S.books.findIndex(x=>x.id===nb.id);if(i>=0)S.books[i]=nb;else S.books.push(nb);save();const isNew=!B.id;closeSheet();
+    if(B.order!=null)nb.order=B.order;if(B.cloud)nb.cloud=B.cloud;const i=S.books.findIndex(x=>x.id===nb.id);if(i>=0)S.books[i]=nb;else S.books.push(nb);save();const isNew=!B.id;closeSheet();
     if(isNew)A.open({id:nb.id});else render();toast(isNew?"Created":"Saved")},
   "delbook-yes"(){txOf(B).forEach(t=>{if(t.receipt)IDB.del(t.receipt).catch(()=>{})});S.tx=S.tx.filter(t=>t.bookId!==B.id);S.books=S.books.filter(b=>b.id!==B.id);save();closeSheet();ui.view="home";render(true);toast("Deleted")},
   share(){openSheet("share")},shback(){ui.sheet.out=null;drawSheet()},
