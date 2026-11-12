@@ -34,6 +34,7 @@ The home screen keeps your khatas in four tabs, **Daily**, **Trips**, **Cards** 
 
 ### Lending and borrowing
 - A **Loans** khata records money you lend and borrow: **You lent**, **You borrowed**, **Got back** and **You paid back**, with an optional pay-back date.
+- **From your daily expenses:** in a daily ledger, set **Paid with** to **Lent to someone** or **Borrowed from someone**. The entry is added to your Loans khata automatically. Money you lent leaves the daily list once it's paid back, and only the unpaid part counts toward your spending until then.
 - **Pay back in installments:** choose how many, the first date and how often (monthly, every 2 weeks or weekly). Khoroch lays out the dates and amounts, and you can change any of them. Repayments are matched to installments oldest first, so each one shows as paid, due or overdue.
 - See the total **owed to you** and what **you owe**, a balance for each person, and anything past its due date.
 - Open a person to see their history and record a repayment in one tap, for the full balance or any part of it.
