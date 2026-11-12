@@ -1290,8 +1290,9 @@ function stackBars(c,labels,a,bb,still){const w=c.clientWidth,h=c.clientHeight;i
 const FBV="10.12.2",FBS=["app","auth","firestore"].map(n=>`https://cdn.jsdelivr.net/npm/firebase@${FBV}/firebase-${n}-compat.js`);
 const SYNC={cfg:null,fb:null,user:null,state:"off",msg:"",ready:false,shadow:{books:{},tx:{}},meta:{},unsubB:null,unsubT:{},txSeen:{},timer:null,join:null,openAfter:null};
 async function fbAdapter(cfg){if(window.__FBMOCK__)return window.__FBMOCK__(cfg);
-  for(const u of FBS)await loadScript(u);
+  if(!window.firebase||!firebase.firestore)await Promise.all(FBS.map(u=>LS[u]||(LS[u]=new Promise((res,rej)=>{const s=document.createElement("script");s.src=u;s.async=false;s.onload=res;s.onerror=()=>{delete LS[u];s.remove();rej(new Error("load script"))};document.head.appendChild(s)}))));
   if(!firebase.apps.length)firebase.initializeApp(cfg);const auth=firebase.auth(),db=firebase.firestore(),FV=firebase.firestore.FieldValue,ts=()=>FV.serverTimestamp();
+  try{db.settings({experimentalAutoDetectLongPolling:true,merge:true})}catch(e){}
   try{await db.enablePersistence({synchronizeTabs:true})}catch(e){}
   const bref=id=>db.collection("books").doc(id),me=u=>u?{uid:u.uid,name:u.displayName||(u.email||"").split("@")[0]||"You",email:u.email||""}:null;
   auth.getRedirectResult().catch(()=>{});
@@ -1309,7 +1310,11 @@ async function fbAdapter(cfg){if(window.__FBMOCK__)return window.__FBMOCK__(cfg)
     setInvite:(id,code)=>bref(id).update({invite:code,updatedAt:ts()}),
     join:(id,uid,name,code)=>bref(id).update({members:FV.arrayUnion(uid),joinWith:code,["names."+uid]:name}),
     leave:(id,uid)=>bref(id).update({members:FV.arrayRemove(uid)}),
-    flushed:()=>db.waitForPendingWrites()}}
+    flushed:()=>db.waitForPendingWrites(),
+    batch:async ops=>{for(let i=0;i<ops.length;i+=450){const b=db.batch();ops.slice(i,i+450).forEach(o=>{
+      if(o.k==="create")b.set(bref(o.id),{owner:o.uid,members:[o.uid],names:{[o.uid]:o.name},data:o.data,updatedAt:ts()});
+      else if(o.k==="update")b.update(bref(o.id),{data:o.data,updatedAt:ts()});
+      else if(o.k==="tx")b.set(bref(o.bid).collection("tx").doc(o.id),Object.assign({},o.data,{updatedAt:ts()}))});await b.commit()}}}}
 const shKey=uid=>"khoroch.sync."+uid;
 function loadShadow(uid){try{const d=JSON.parse(localStorage.getItem(shKey(uid))||"null");if(d&&d.books&&d.tx)return d}catch(e){}return{books:{},tx:{}}}
 function saveShadow(){if(!SYNC.user)return;try{localStorage.setItem(shKey(SYNC.user.uid),JSON.stringify(SYNC.shadow))}catch(e){}}
@@ -1350,7 +1355,7 @@ function acctSheet(){const sh=ui.sheet,busy=sh.busy?" disabled":"";
     <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px"><button class="link" data-a="acmode" data-m="${up?"in":"up"}">${up?"I already have an account":"Create an account"}</button>${up?"":'<button class="link" data-a="resetpw">Forgot password?</button>'}</div>`}
 function delText(B){const c=B.cloud,mine=!c||!SYNC.user||c.owner===SYNC.user.uid,shared=c&&c.members&&c.members.length>1;
   return !mine?`Leave "${esc(B.name)}"? It will be removed from your devices. The others keep it.`:shared?`Delete "${esc(B.name)}" for everyone it's shared with?`:`Delete "${esc(B.name)}" and all its entries${SYNC.user&&c?" from all your devices":" from this device"}?`}
-function syncSoon(){if(!SYNC.user)return;clearTimeout(SYNC.timer);SYNC.timer=setTimeout(push,350)}
+function syncSoon(){if(!SYNC.user)return;clearTimeout(SYNC.timer);SYNC.timer=setTimeout(push,40)}
 function quietSave(){save.quiet=true;save();save.quiet=false}
 let renderTimer=null;function renderSoon(){clearTimeout(renderTimer);renderTimer=setTimeout(()=>render(),120)}
 function onErr(e){const c=String(e&&e.code||e&&e.message||e);setSync("error",/permission/.test(c)?"Sync was refused. Check the Firestore security rules in the setup guide.":"Sync stopped ("+c+"). Reopen the app to try again.")}
@@ -1374,25 +1379,33 @@ function onBooks(list,fromCache){const uid=SYNC.user&&SYNC.user.uid;if(!uid)retu
     SYNC.shadow.books[id]=JSON.stringify(bookData(nb));if(!SYNC.unsubT[id])SYNC.unsubT[id]=SYNC.fb.watchTx(id,(ch,fc)=>onTx(id,ch,fc),onErr)});
   if(!fromCache)S.books.slice().forEach(b=>{if(!ids.has(b.id)&&SYNC.shadow.books[b.id]&&(SYNC.baseB.has(b.id)||SYNC.seenB.has(b.id))){S.books=S.books.filter(x=>x.id!==b.id);S.tx=S.tx.filter(t=>t.bookId!==b.id);delete SYNC.shadow.books[b.id];
     if(SYNC.unsubT[b.id]){SYNC.unsubT[b.id]();delete SYNC.unsubT[b.id]}if(ui.bookId===b.id&&ui.view!=="home"){ui.view="home";toast("You no longer have access to "+b.name)}}});
-  if(!fromCache)SYNC.ready=true;quietSave();saveShadow();if(SYNC.ready)push();
+  if(!fromCache)SYNC.ready=true;quietSave();saveShadow();push();
   if(SYNC.openAfter&&ids.has(SYNC.openAfter)){const id=SYNC.openAfter;SYNC.openAfter=null;A.open({id})}else renderSoon()}
 function onTx(bid,changes,fromCache){const seen=SYNC.txSeen[bid]||(SYNC.txSeen[bid]=new Set());
   changes.forEach(c=>{seen.add(c.id);if(c.type==="removed"||c.data.deleted){S.tx=S.tx.filter(t=>t.id!==c.id);SYNC.shadow.tx[c.id]="-";return}
     const t=Object.assign({},c.data,{id:c.id,bookId:bid});delete t.updatedAt;delete t.deleted;const i=S.tx.findIndex(x=>x.id===c.id);if(i>=0)S.tx[i]=t;else S.tx.push(t);SYNC.shadow.tx[c.id]=JSON.stringify(txData(t))});
   if(!fromCache&&!seen.server){seen.server=true;S.tx=S.tx.filter(t=>!(t.bookId===bid&&!seen.has(t.id)&&SYNC.baseT.has(t.id)&&SYNC.shadow.tx[t.id]&&SYNC.shadow.tx[t.id]!=="-"))}
-  quietSave();saveShadow();if(SYNC.ready)syncSoon();renderSoon()}
-function push(){if(!SYNC.user||!SYNC.ready)return;const uid=SYNC.user.uid,fb=SYNC.fb,sh=SYNC.shadow,w=[];
+  quietSave();saveShadow();syncSoon();renderSoon()}
+function push(){if(!SYNC.user||!SYNC.fb)return;const uid=SYNC.user.uid,fb=SYNC.fb,sh=SYNC.shadow,early=!SYNC.ready,cr=[],ops=[],sep=[];
+  // before the server's list arrives, only touch khatas the server already has: no creating or deleting yet
   S.books.forEach(b=>{if(b.sample)return;const d=bookData(b),j=JSON.stringify(d);
-    if(!sh.books[b.id]){w.push(fb.createBook(b.id,uid,SYNC.user.name,d));b.cloud=SYNC.meta[b.id]={owner:uid,members:[uid],names:{[uid]:SYNC.user.name},invite:null};if(!SYNC.unsubT[b.id])SYNC.unsubT[b.id]=fb.watchTx(b.id,(ch,fc)=>onTx(b.id,ch,fc),onErr)}
-    else if(sh.books[b.id]!==j)w.push(fb.updateBook(b.id,d));sh.books[b.id]=j});
-  const live=new Set(S.books.filter(b=>!b.sample).map(b=>b.id)),have=new Set();
-  S.tx.forEach(t=>{if(!live.has(t.bookId))return;have.add(t.id);const j=JSON.stringify(txData(t));if(sh.tx[t.id]!==j){w.push(fb.setTx(t.bookId,t.id,txData(t)));sh.tx[t.id]=j}});
+    if(!sh.books[b.id]){if(early)return;cr.push({k:"create",id:b.id,uid,name:SYNC.user.name,data:d});b.cloud=SYNC.meta[b.id]={owner:uid,members:[uid],names:{[uid]:SYNC.user.name},invite:null};if(!SYNC.unsubT[b.id])SYNC.unsubT[b.id]=fb.watchTx(b.id,(ch,fc)=>onTx(b.id,ch,fc),onErr)}
+    else if(sh.books[b.id]!==j)ops.push({k:"update",id:b.id,data:d});sh.books[b.id]=j});
+  const live=new Set(S.books.filter(b=>!b.sample&&sh.books[b.id]).map(b=>b.id)),have=new Set();
+  S.tx.forEach(t=>{if(!live.has(t.bookId))return;have.add(t.id);const j=JSON.stringify(txData(t));if(sh.tx[t.id]!==j){ops.push({k:"tx",bid:t.bookId,id:t.id,data:txData(t)});sh.tx[t.id]=j}});
   Object.keys(sh.tx).forEach(id=>{const v=sh.tx[id];if(v==="-"||have.has(id))return;let bid=null;try{bid=JSON.parse(v).bookId}catch(e){}
-    if(bid&&live.has(bid)){w.push(fb.setTx(bid,id,{deleted:true,bookId:bid}));sh.tx[id]="-"}else if(!bid||!sh.books[bid])delete sh.tx[id]});
-  Object.keys(sh.books).forEach(id=>{if(live.has(id))return;const m=SYNC.meta[id];w.push(m&&m.owner&&m.owner!==uid?fb.leave(id,uid):fb.deleteBook(id));delete sh.books[id];delete SYNC.meta[id];
+    if(bid&&live.has(bid)){ops.push({k:"tx",bid,id,data:{deleted:true,bookId:bid}});sh.tx[id]="-"}else if(!early&&(!bid||!sh.books[bid]))delete sh.tx[id]});
+  if(!early)Object.keys(sh.books).forEach(id=>{if(S.books.some(b=>b.id===id&&!b.sample))return;const m=SYNC.meta[id];sep.push(m&&m.owner&&m.owner!==uid?()=>fb.leave(id,uid):()=>fb.deleteBook(id));delete sh.books[id];delete SYNC.meta[id];
     if(SYNC.unsubT[id]){SYNC.unsubT[id]();delete SYNC.unsubT[id]}});
   saveShadow();
-  if(w.length){setSync(navigator.onLine===false?"offline":"syncing");Promise.all(w).then(()=>fb.flushed&&fb.flushed()).then(()=>setSync("synced"),onErr)}else if(SYNC.state!=="error")setSync(navigator.onLine===false?"offline":"synced")}
+  if(!cr.length&&!ops.length&&!sep.length){if(SYNC.state!=="error"&&!early)setSync(navigator.onLine===false?"offline":"synced");return}
+  setSync(navigator.onLine===false?"offline":"syncing");
+  const one=l=>Promise.allSettled(l.map(o=>o.k==="create"?fb.createBook(o.id,o.uid,o.name,o.data):o.k==="update"?fb.updateBook(o.id,o.data):fb.setTx(o.bid,o.id,o.data))).then(r=>{const bad=r.find(x=>x.status==="rejected");if(bad)throw bad.reason});
+  // one refused write would sink the whole batch, so fall back to single writes and let the rest through
+  const run=l=>fb.batch&&l.length>1?fb.batch(l).catch(()=>one(l)):one(l);
+  // new khatas first (entries need their khata to exist), then everything else in one go
+  const job=(SYNC.chain||Promise.resolve()).catch(()=>{}).then(()=>cr.length?run(cr):null).then(()=>ops.length?run(ops):null).then(()=>Promise.all(sep.map(f=>f())));
+  SYNC.chain=job;job.then(()=>{if(SYNC.chain===job)setSync(SYNC.ready?"synced":"syncing")},onErr)}
 addEventListener("online",()=>{if(SYNC.user)push()});addEventListener("offline",()=>{if(SYNC.user)setSync("offline")});
 async function inviteFlow(){const b=curBook();
   if(!SYNC.user){closeSheet();openSheet("acct",{mode:"in"});return}
