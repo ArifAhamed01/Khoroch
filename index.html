@@ -83,6 +83,11 @@ section{display:flex;flex-direction:column;gap:12px}
 .book .bar{background:hsl(var(--h) 40% 50% / .16);height:6px}.book .bar i{background:hsl(var(--h) 60% var(--tint-ink))}.book .bar i.over{background:var(--neg)}
 .bar i{display:block;height:100%;border-radius:3px;background:var(--primary)}
 .bar i.over{background:var(--neg)}
+.starts{display:flex;flex-direction:column;gap:12px}
+.start{display:flex;flex-direction:column;gap:4px;text-align:left;border:1px solid hsl(var(--h) 40% 50% / .14);border-radius:24px;padding:20px;min-height:88px;
+  color:var(--fg);background:hsl(var(--h) var(--tint-s) var(--tint-l));font-size:1rem}
+.start b{font-family:var(--f-d);font-size:1.25rem}.start span{color:var(--muted)}
+.start:active{transform:scale(.985)}
 .empty{border:1px dashed var(--line-strong);border-radius:6px;padding:22px 18px;text-align:center;color:var(--muted);background:var(--surface)}
 
 /* Book view */
@@ -313,24 +318,6 @@ const KEY="khoroch.v1";
 let S=null;                         // {books:[], tx:[]}
 let ui={view:"home",bookId:null,tab:"overview",filter:"All",month:today().slice(0,7),sheet:null,canInstall:null,isoData:{}};
 let F=null,B=null;                  // form state: expense / book
-function demo(){const t=today();return{books:[
-  {id:"demo-trip",type:"trip",name:"Cox's Bazar weekend",sample:true,cur:"৳",hue:200,start:addDays(t,-2),end:t,budget:0,created:1,
-   members:[{id:"m1",name:"Rafi",heads:1},{id:"m2",name:"Nadia & Sami",heads:2},{id:"m3",name:"Tanvir",heads:1}]},
-  {id:"demo-daily",type:"personal",name:"Daily expenses",sample:true,cur:"৳",hue:35,budget:30000,members:[],created:2}],
- tx:[["Bus tickets",4800,"transport",-2,"m1","heads"],["Hotel, 2 nights",9000,"stay",-2,"m2","heads"],["Seafood dinner",3200,"food",-1,"m3","heads"],["Beach chairs",300,"fun",-1,"m1","equal"],["Jeep to Himchari",2400,"sights",0,"m2","heads"]]
-   .map((r,i)=>({id:"d"+i,bookId:"demo-trip",kind:"expense",desc:r[0],amount:r[1],cat:r[2],date:addDays(t,r[3]),payers:{[r[4]]:r[1]},split:{mode:r[5],among:["m1","m2","m3"]},note:"",created:i}))
-  .concat([["Groceries",1250,"food",0],["Rickshaw",80,"transport",0],["Mobile recharge",299,"bills",-1],["Lunch",220,"food",-1],["Pharmacy",460,"health",-2]]
-   .map((r,i)=>({id:"p"+i,bookId:"demo-daily",kind:"expense",desc:r[0],amount:r[1],cat:r[2],date:addDays(t,r[3]),note:"",created:i})))}}
-function demoCard(){const t=today(),d=new Date(t+"T12:00:00");d.setMonth(d.getMonth()-7);const fs=String(d.getMonth()+1).padStart(2,"0")+"-15";
-  const book={id:"demo-card",type:"card",name:"Sample Visa card",sample:true,cur:"৳",hue:340,budget:0,members:[],created:3,statements:[
-    {id:"sd0",file:"",from:"",to:"",count:0,total:0,added:1,due:12410,min:620,dueDate:addDays(t,-22),paid:12410,paidOn:addDays(t,-25)},
-    {id:"sd1",file:"",from:"",to:"",count:0,total:0,added:2,due:18640,min:932,dueDate:addDays(t,8),paid:5000,paidOn:addDays(t,-1)}],
-    card:{last4:"4821",target:24,feeStart:fs,minAmt:0,fee:2875,rules:Object.assign({},CT_DEFAULT,{qr:false})}};
-  const L=[["Shwapno Gulshan",1850],["Foodpanda",640],["GP recharge",299],["Bangla QR Star Kabab",420],["DESCO prepaid",1500],["bKash add money",3000],["Daraz",2350],["Pathao Food",520],["Aarong",4200],["Bangla QR tea stall",120]];
-  const fy=feeYear(cardOf(book),0),tx=[];let n=0;
-  monthsOf(fy).forEach((ym,i)=>{for(let k=0;k<2+(i%3);k++){const r=L[(i*3+k)%L.length],date=ym+"-"+String(3+k*8).padStart(2,"0");if(date<fy.start||date>t)continue;
-    const ct=classify(r[0]);tx.push({id:"c"+n,bookId:"demo-card",kind:"expense",desc:r[0],amount:r[1],cat:guessCat(r[0],ct),ctype:ct,date,note:"",created:n++})}});
-  return{book,tx}}
 function load(){try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);if(d&&Array.isArray(d.books)&&Array.isArray(d.tx))return d}}catch(e){}return null}
 function save(){if(!save.quiet)syncSoon();try{localStorage.setItem(KEY,JSON.stringify(S,(k,v)=>k==="_v"?undefined:v));if(!save.asked&&navigator.storage&&navigator.storage.persist){save.asked=1;navigator.storage.persist().catch(()=>{})}}catch(e){toast("Couldn't save on this device")}}
 const book=id=>S.books.find(b=>b.id===id);
@@ -371,15 +358,18 @@ function home(){
       sub=`${nb&&bs.left>0?`<span class="${bs.cls==="bad"?"neg":""}">${fmtP(bs.left,b.cur)} ${bs.cls==="bad"?"overdue":"due"}${nb.dueDate?" by "+shortDate(nb.dueDate):""}</span>`:""}<span>${st.count} of ${c.target} for the fee waiver</span><span>${st.done?"Fee waived this year":"Fee year ends "+longDate(st.fy.end)}</span>`;
       bar=`<div class="bar"><i style="width:${Math.min(100,st.count/c.target*100).toFixed(1)}%"></i></div>`}
     return `<button class="book" style="--h:${+b.hue||230}" data-a="open" data-id="${esc(b.id)}">
-      <span class="book-name">${esc(b.name)} <span class="pill">${b.type==="trip"?"Trip":b.type==="card"?"Credit card"+(b.card&&b.card.last4?" "+esc(b.card.last4):""):"Daily ledger"}</span>${b.sample?'<span class="pill">Sample</span>':""}${b.cloud&&b.cloud.members&&b.cloud.members.length>1?'<span class="pill">Shared</span>':""}</span>
+      <span class="book-name">${esc(b.name)} <span class="pill">${b.type==="trip"?"Trip":b.type==="card"?"Credit card"+(b.card&&b.card.last4?" "+esc(b.card.last4):""):"Daily ledger"}</span>${b.cloud&&b.cloud.members&&b.cloud.members.length>1?'<span class="pill">Shared</span>':""}</span>
       <span class="book-total num">${total}</span><span class="book-sub">${sub}</span>${bar}</button>`}).join("");
   return `<header class="hero"><canvas id="globe" aria-hidden="true"></canvas>
     <div class="hero-txt"><div class="brand"><i></i>Khoroch</div><h1>Split trips. Track every day.</h1><p>${SYNC.user?"Works offline and syncs to your account.":"Works offline. Your data stays on this device."}</p>
     ${ui.canInstall?'<button class="btn-ghost" data-a="install">Install app</button>':""}</div></header>
   ${syncBar()}
   <section><div class="sec-head"><h2>Your khatas</h2><button class="link" data-a="import">Import</button></div>
-    <div class="books">${cards||'<div class="empty">No khatas yet. Tap <b>New khata</b> to start a trip, a daily ledger or a credit card.</div>'}</div></section>
-  <button class="fab" data-a="newbook">+ New khata</button>`}
+    ${cards?`<div class="books">${cards}</div>`:`<p class="muted" style="margin:0 0 4px">A khata keeps one set of expenses together. Start one:</p><div class="starts">
+      <button class="start" style="--h:160" data-a="newbook" data-t="trip"><b>Trip with friends</b><span>Split costs and see who owes whom</span></button>
+      <button class="start" style="--h:205" data-a="newbook" data-t="personal"><b>Daily expenses</b><span>Log your spending against a monthly budget</span></button>
+      <button class="start" style="--h:330" data-a="newbook" data-t="card"><b>Credit card</b><span>Bills, due dates and the yearly fee waiver</span></button></div>`}</section>
+  ${cards?'<button class="fab" data-a="newbook">+ New khata</button>':""}`}
 
 function topbar(b){return `<div class="top"><button class="iconbtn" data-a="back" aria-label="Back">${ico(I.back)}</button><h1>${esc(b.name)}</h1>
   <button class="iconbtn" data-a="share" aria-label="Share or export">${ico(I.share)}</button><button class="iconbtn" data-a="editbook" aria-label="Edit">${ico(I.edit)}</button></div>`}
@@ -604,7 +594,7 @@ const A={
     else if(F.receipt)t.receipt=F.receipt;
     const i=S.tx.findIndex(x=>x.id===t.id);if(i>=0)S.tx[i]=t;else S.tx.push(t);save();const was=!!F.id;closeSheet();render();toast(was?"Updated":"Saved",!was)},
   "deltx-yes"(){if(F.receipt)IDB.del(F.receipt).catch(()=>{});S.tx=S.tx.filter(t=>t.id!==F.id);save();closeSheet();render();toast("Deleted")},
-  newbook(){B={id:null,type:"trip",name:"",cur:(S.books[S.books.length-1]||{}).cur||"৳",start:"",budget:"",members:[{id:uid(),name:"",heads:1},{id:uid(),name:"",heads:1}],
+  newbook(d){B={id:null,type:d&&d.t||"trip",name:"",cur:(S.books[S.books.length-1]||{}).cur||"৳",start:"",budget:"",members:[{id:uid(),name:"",heads:1},{id:uid(),name:"",heads:1}],
     card:{last4:"",target:"24",feeDate:today(),minAmt:"",fee:"",rules:Object.assign({},CT_DEFAULT)}};openSheet("book")},
   editbook(){const b=curBook();B=JSON.parse(JSON.stringify(b));B.budget=B.budget||"";
     if(b.type==="card"){const c=cardOf(b);B.card={last4:c.last4,target:String(c.target),feeDate:feeYear(c,0).start,minAmt:c.minAmt?String(c.minAmt):"",fee:c.fee?String(c.fee):"",rules:Object.assign({},c.rules)}}
@@ -1212,7 +1202,8 @@ async function inviteFlow(){const b=curBook();
   if(ui.sheet)ui.sheet.out={label:"Invite link",text:link,shareText:`Join "${b.name}" on Khoroch to add expenses: ${link}`};drawSheet()}
 
 /* ---------- start ---------- */
-S=load();if(!S){S=window.__SEED__?JSON.parse(JSON.stringify(window.__SEED__)):demo();const dc=demoCard();S.books.push(dc.book);S.tx.push(...dc.tx)}
+S=load();if(!S)S=window.__SEED__?JSON.parse(JSON.stringify(window.__SEED__)):{books:[],tx:[]};
+if(S.books.some(b=>b.sample)){const gone=new Set(S.books.filter(b=>b.sample).map(b=>b.id));S.books=S.books.filter(b=>!gone.has(b.id));S.tx=S.tx.filter(t=>!gone.has(t.bookId));save()}
 render(true);
 if(!RM)requestAnimationFrame(loop);
 let lastW=innerWidth;addEventListener("resize",()=>{if(innerWidth===lastW)return;lastW=innerWidth;drawCharts(true);drawGlobe(performance.now())});

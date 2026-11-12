@@ -49,7 +49,7 @@ These values identify your project. They aren't secret, and it's safe to keep th
 2. Open the app and refresh it twice so it picks up the new version.
 3. A **Sync and share** bar appears under the globe. Tap it and sign in.
 
-Your khatas upload to your account. Sign in on another phone or computer and they appear there too. The sample khatas are never uploaded.
+Your khatas upload to your account. Sign in on another phone or computer and they appear there too.
 
 ## Sharing a trip
 
