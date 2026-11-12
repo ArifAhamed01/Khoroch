@@ -34,6 +34,7 @@ The home screen keeps your khatas in four tabs, **Daily**, **Trips**, **Cards** 
 
 ### Lending and borrowing
 - A **Loans** khata records money you lend and borrow: **You lent**, **You borrowed**, **Got back** and **You paid back**, with an optional pay-back date.
+- **Pay back in installments:** choose how many, the first date and how often (monthly, every 2 weeks or weekly). Khoroch lays out the dates and amounts, and you can change any of them. Repayments are matched to installments oldest first, so each one shows as paid, due or overdue.
 - See the total **owed to you** and what **you owe**, a balance for each person, and anything past its due date.
 - Open a person to see their history and record a repayment in one tap, for the full balance or any part of it.
 
@@ -44,7 +45,7 @@ Many cards waive the yearly fee after a set number of transactions, and every ba
 - **Upload a monthly statement** as a PDF (password-protected ones too), a photo or a CSV. Khoroch lists the transactions, skips payments and refunds, marks anything already added, and lets you untick lines before adding them.
 - **Each transaction gets a type** from its description, for example "BANGLA QR" becomes a QR payment and "GP RECHARGE" a mobile recharge. You can change the type, or mark a single transaction as counting or not counting.
 - **Still to pay at a glance:** the big number on each card is what you still owe: the unpaid part of the latest bill plus anything spent since that statement. Add your **credit limit** in the card's settings to see how much is still available.
-- **Pay with any card:** every expense in a trip or daily ledger has a **Paid with** choice: Cash, Debit card, or one of your credit cards. Pick a credit card and the expense is added to that card automatically, counts toward its fee waiver, and raises what you owe until the next bill.
+- **Pay with any card:** every expense in a trip or daily ledger has a **Paid with** dropdown: Cash, Debit card, or one of your credit cards. Pick a credit card and the expense is added to that card automatically, counts toward its fee waiver, and raises what you owe until the next bill.
 - **Track each month's bill:** when you upload a statement, Khoroch reads the outstanding amount, the minimum due and the last date of payment, and shows them to you first. You type in how much you paid (or tap **Paid in full** or **Paid the minimum**). The card shows what's still to pay and warns you as the due date gets close or passes. If something was read wrong, tap **Edit**. You can also add a bill by hand.
 - **See your progress:** a punch card of qualifying transactions with an even-pace marker, transactions each month (counted and not counted), spending each month, and breakdowns by type and category. Past fee years are kept.
 - Statement passwords are used only to open the file and are never saved.
