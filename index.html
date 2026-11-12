@@ -230,6 +230,7 @@ pre.ocr{white-space:pre-wrap;word-break:break-word;font:12px/1.45 ui-monospace,M
 .billcard .actions .btn{flex:0 1 auto}
 .chips.chipwrap{flex-wrap:wrap;overflow:visible}
 .billcard .bar.lim i{background:var(--primary)}
+.book-total .of{font-size:.6em;color:var(--muted);font-weight:600}
 .book-total small{display:block;font-family:var(--f-b);font-weight:400;font-size:.8rem;color:var(--muted);text-align:right;margin-top:2px}
 .billcard.empty-bill{flex-direction:row;align-items:center;gap:14px;text-align:left;color:var(--fg);border-style:dashed;min-height:64px;width:100%;font-size:1rem}
 .billcard.empty-bill>span{display:flex;flex-direction:column;gap:2px}.billcard.empty-bill>span>span{color:var(--muted);font-size:.92rem}
@@ -357,9 +358,9 @@ function home(){
     else{const m=today().slice(0,7),ms=spent(l.filter(t=>(t.date||"").startsWith(m)));total=fmt(ms,b.cur);cap="spent this month";
       sub=`<span>${n} entries in total</span>${b.budget?`<span>Budget ${fmt(b.budget,b.cur)}</span>`:""}`;
       if(b.budget)bar=`<div class="bar"><i class="${ms>b.budget?"over":""}" style="width:${Math.min(100,ms/b.budget*100).toFixed(1)}%"></i></div>`}
-    if(b.type==="card"){const st=cardStats(b,0),c=st.c,o=cardOwed(b);total=fmtP(o.total,b.cur);cap="still to pay";
+    if(b.type==="card"){const st=cardStats(b,0),c=st.c,o=cardOwed(b);total=`${st.count}<span class="of">/${c.target}</span>`;cap="fee waiver";
       const nb=o.bill,bs=nb&&billStatus(nb),late=bs&&bs.left>0&&nb.dueDate&&nb.dueDate<today();
-      sub=`${nb&&bs.left>0?`<span class="${bs.cls==="bad"?"neg":""}">Bill ${fmtP(bs.left,b.cur)} ${late?"overdue":"due"}${nb.dueDate?" by "+shortDate(nb.dueDate):""}</span>`:""}${o.limit?`<span class="${o.avail<0?"neg":""}">${fmtP(o.avail,b.cur)} of ${fmtP(o.limit,b.cur)} available</span>`:""}<span>Spent ${fmt(st.spend,b.cur)} this fee year</span><span>${st.count} of ${c.target} for the fee waiver</span><span>${st.done?"Fee waived this year":"Fee year ends "+longDate(st.fy.end)}</span>`;
+      sub=`<span class="${late?"neg":""}">Still to pay ${fmtP(o.total,b.cur)}${nb&&bs.left>0&&nb.dueDate?`, bill ${late?"overdue since":"due by"} ${shortDate(nb.dueDate)}`:""}</span>${o.limit?`<span class="${o.avail<0?"neg":""}">${fmtP(o.avail,b.cur)} of ${fmtP(o.limit,b.cur)} available</span>`:""}<span>${st.done?"Fee waived this year":"Fee year ends "+longDate(st.fy.end)}</span>`;
       bar=`<div class="bar"><i style="width:${Math.min(100,st.count/c.target*100).toFixed(1)}%"></i></div>`}
     return `<button class="book" style="--h:${+b.hue||230}" data-a="open" data-id="${esc(b.id)}">
       <span class="book-name">${esc(b.name)} <span class="pill">${b.type==="trip"?"Trip":b.type==="card"?"Credit card"+(b.card&&b.card.last4?" "+esc(b.card.last4):""):"Daily ledger"}</span>${b.cloud&&b.cloud.members&&b.cloud.members.length>1?'<span class="pill">Shared</span>':""}</span>
@@ -890,7 +891,7 @@ function cardView(b){const off=ui.fy||0,st=cardStats(b,off),c=st.c,list=st.list;
   ${billCard(b)}
   <div class="monthnav"><button class="iconbtn" data-a="fy" data-d="-1" aria-label="Previous fee year">${ico(I.left)}</button><b class="num" style="font-size:1rem;text-align:center">${longDate(st.fy.start)} to ${longDate(st.fy.end)}</b><button class="iconbtn" data-a="fy" data-d="1" aria-label="Next fee year"${off>=0?" disabled style='opacity:.35'":""}>${ico(I.right)}</button></div>
   <section class="totals"><span class="eyebrow">Qualifying transactions</span><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><b class="big num">${st.count} of ${c.target}</b>${pill}</div>
-    <div class="sub num"><span>${st.line}</span>${c.fee&&!st.past?`<span>Saves the ${fmt(c.fee,b.cur)} annual fee</span>`:""}</div></section>
+    <div class="sub num"><span>${st.line}</span><span>Spent ${fmt(st.spend,b.cur)} this fee year</span>${c.fee&&!st.past?`<span>Saves the ${fmt(c.fee,b.cur)} annual fee</span>`:""}</div></section>
   <div class="card ruled"><div class="punch" role="img" aria-label="${st.count} of ${c.target} qualifying transactions${paceAt>=0?". By today you should have about "+Math.round(st.expected):""}">${Array.from({length:Math.min(c.target,120)},(_,i)=>`<i class="${i<st.count?"on":""}${i===paceAt?" pace":""}"></i>`).join("")}</div>
     ${paceAt>=0?`<div class="pnote">The dashed circle is where you'd be at an even pace today.</div>`:""}</div>
   <div class="tabs"><button aria-pressed="${ui.tab==="overview"}" data-a="tab" data-t="overview">Overview</button><button aria-pressed="${ui.tab==="log"}" data-a="tab" data-t="log">Transactions</button></div>`;
