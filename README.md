@@ -32,6 +32,7 @@ Khoroch (খরচ, "expense" in Bangla) is a lightweight expense app that insta
 
 ### Credit card fee waivers
 Many cards waive the yearly fee after a set number of transactions, and every bank counts differently. A **Credit card** khata tracks this for each card.
+- **Cards without a transaction waiver:** some cards (for example ones whose fee is waived with reward points) don't use a transaction count. Set **Annual fee waiver** to **Not by transactions** and the card skips the counting, while bills, what you owe, the limit and spending still work.
 - **Each card has its own rules:** transactions needed, the date the fee year starts, an optional minimum amount, the annual fee, and which kinds of transaction count (card purchase, online, QR payment, mobile recharge, utility bill, wallet or transfer, cash withdrawal, EMI, fees).
 - **Upload a monthly statement** as a PDF (password-protected ones too), a photo or a CSV. Khoroch lists the transactions, skips payments and refunds, marks anything already added, and lets you untick lines before adding them.
 - **Each transaction gets a type** from its description, for example "BANGLA QR" becomes a QR payment and "GP RECHARGE" a mobile recharge. You can change the type, or mark a single transaction as counting or not counting.
