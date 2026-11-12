@@ -13,6 +13,8 @@ Khoroch (খরচ, "expense" in Bangla) is a lightweight expense app that insta
 
 ## Features
 
+The home screen keeps your khatas in three tabs, **Daily**, **Trips** and **Cards**, and opens on the one you used last.
+
 ### Group trips
 - Add each traveller, or add a couple or family as one entry with a headcount, so a group of 3 pays more than a couple.
 - Split each expense **per person**, **per group** or by **custom amounts**, and include only the people it was for.
