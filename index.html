@@ -388,9 +388,9 @@ function home(){
     else{const m=today().slice(0,7),ms=spent(l.filter(t=>(t.date||"").startsWith(m)));total=fmt(ms,b.cur);cap="spent this month";
       sub=`<span>${n} entries in total</span>${b.budget?`<span>Budget ${fmt(b.budget,b.cur)}</span>`:""}`;
       if(b.budget)bar=`<div class="bar"><i class="${ms>b.budget?"over":""}" style="width:${Math.min(100,ms/b.budget*100).toFixed(1)}%"></i></div>`}
-    if(b.type==="card"){const st=cardStats(b,0),c=st.c,o=cardOwed(b);total=c.nocount?fmtP(o.total,b.cur):`${st.count}<span class="of">/${c.target}</span>`;cap=c.nocount?"still to pay":"fee waiver";
+    if(b.type==="card"){const st=cardStats(b,0),c=st.c,o=cardOwed(b);total=c.nocount?fmtP(o.total,b.cur)+(o.totalFx>0?`<span class="of"> +${fmtP(o.totalFx,"$")}</span>`:""):`${st.count}<span class="of">/${c.target}</span>`;cap=c.nocount?"still to pay":"fee waiver";
       const nb=o.bill,bs=nb&&billStatus(nb),late=bs&&bs.left>0&&nb.dueDate&&nb.dueDate<today();
-      sub=`<span class="${late?"neg":""}">${c.nocount?(nb&&bs.left>0?"Bill "+fmtP(bs.left,b.cur):"No bill due"):"Still to pay "+fmtP(o.total,b.cur)}${nb&&bs.left>0&&nb.dueDate?`, bill ${late?"overdue since":"due by"} ${shortDate(nb.dueDate)}`:""}</span>${o.limit?`<span class="${o.avail<0?"neg":""}">${fmtP(o.avail,b.cur)} of ${fmtP(o.limit,b.cur)} available</span>`:""}${c.nocount?"":`<span>${st.done?"Fee waived this year":"Fee year ends "+longDate(st.fy.end)}</span>`}`;
+      sub=`<span class="${late?"neg":""}">${c.nocount?(nb&&bs.left>0?"Bill "+[o.billLeft>0?fmtP(o.billLeft,b.cur):"",o.billLeftFx>0?fmtP(o.billLeftFx,"$"):""].filter(Boolean).join(" + "):"No bill due"):"Still to pay "+fmtP(o.total,b.cur)+(o.totalFx>0?" + "+fmtP(o.totalFx,"$"):"")}${nb&&bs.left>0&&nb.dueDate?`, bill ${late?"overdue since":"due by"} ${shortDate(nb.dueDate)}`:""}</span>${o.limit?`<span class="${o.avail<0?"neg":""}">${fmtP(o.avail,b.cur)} of ${fmtP(o.limit,b.cur)} available</span>`:""}${c.nocount?"":`<span>${st.done?"Fee waived this year":"Fee year ends "+longDate(st.fy.end)}</span>`}`;
       bar=c.nocount?(o.limit?`<div class="bar"><i style="width:${Math.min(100,Math.max(0,o.total/o.limit*100)).toFixed(1)}%"></i></div>`:""):`<div class="bar"><i style="width:${Math.min(100,st.count/c.target*100).toFixed(1)}%"></i></div>`}
     return `<button class="book" style="--h:${+b.hue||230}" data-a="open" data-id="${esc(b.id)}" data-sort="book">
       <span class="book-name">${esc(b.name)} ${b.type==="card"&&b.card&&b.card.last4?`<span class="pill">•••• ${esc(b.card.last4)}</span>`:""}${b.cloud&&b.cloud.members&&b.cloud.members.length>1?'<span class="pill">Shared</span>':""}</span>
@@ -546,7 +546,7 @@ function drawCharts(still){document.querySelectorAll("canvas[data-iso]").forEach
 const pick=(items,sel,a)=>`<div class="pick">${items.map(m=>`<button type="button" data-a="${a}" data-id="${esc(m.id)}" aria-pressed="${Array.isArray(sel)?sel.includes(m.id):sel===m.id}">${esc(m.name)}</button>`).join("")}</div>`;
 const head=t=>`<div class="sheet-head"><h2>${t}</h2><button class="x" data-a="close" aria-label="Close">×</button></div>`;
 function txSheet(){if(curBook().type==="loan")return loanSheet();const b=curBook(),trip=b.type==="trip",groups=b.members.some(m=>m.heads>1);
-  const common=`<label class="f">Amount (${esc(b.cur)})<input class="amount num${F.filled&&F.filled.amount?" filled":""}" id="f-amount" data-f="amount" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${esc(F.amount)}"></label>`;
+  const common=`<label class="f">Amount (${esc(b.type==="card"&&F.fx&&isDual(b)?"$":b.cur)})<input class="amount num${F.filled&&F.filled.amount?" filled":""}" id="f-amount" data-f="amount" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${esc(F.amount)}"></label>`;
   let h=head(F.id?"Edit entry":F.kind==="settle"?"Record a payback":"Add expense");
   if(trip&&!F.id)h+=`<div class="seg"><button data-a="kind" data-k="expense" aria-pressed="${F.kind==="expense"}">Expense</button><button data-a="kind" data-k="settle" aria-pressed="${F.kind==="settle"}">Paid back</button></div>`;
   if(F.kind==="settle"){h+=common+`<div class="f">Who paid it back?${pick(b.members,F.from,"from")}</div><div class="f">To whom?${pick(b.members,F.to,"to")}</div>
@@ -614,7 +614,10 @@ function bookSheet(){const used=new Set();if(B.id)txOf(B).forEach(t=>{Object.key
   h+=`<label class="f">Name<input id="b-name" data-b="name" maxlength="60" placeholder="${B.type==="trip"?"Bandarban, December":B.type==="card"?"EBL Visa Platinum":B.type==="loan"?"Lending and borrowing":"Daily expenses"}" value="${esc(B.name)}"></label>
   <div class="grid2"><label class="f">Currency<select id="b-cur" data-b="cur">${CURS.map(c=>`<option value="${c[0]}"${B.cur===c[0]?" selected":""}>${c[0]} ${c[1]}</option>`).join("")}</select></label>
   ${B.type==="card"?`<div class="grid2"><label class="f">Last 4 digits (optional)<input id="b-last4" class="num" data-b="card.last4" inputmode="numeric" maxlength="4" placeholder="1234" value="${esc(B.card.last4)}"></label>
-    <label class="f">Credit limit (${esc(B.cur)})<input id="b-limit" class="num" data-b="card.limit" type="number" inputmode="decimal" min="0" step="any" placeholder="Optional" value="${esc(B.card.limit||"")}"></label></div>`:B.type==="trip"?`<label class="f">Start date<input id="b-start" data-b="start" type="date" value="${esc(B.start||"")}"></label>`:B.type==="loan"?"":`<label class="f">Monthly budget (optional)<input id="b-budget" class="num" data-b="budget" type="number" inputmode="decimal" min="0" placeholder="0" value="${esc(B.budget||"")}"></label>`}</div>`;
+    <label class="f">Credit limit (${esc(B.cur)})<input id="b-limit" class="num" data-b="card.limit" type="number" inputmode="decimal" min="0" step="any" placeholder="Optional" value="${esc(B.card.limit||"")}"></label></div>
+    <div class="f">Billed in<div class="seg"><button type="button" data-a="cfx" data-v="" aria-pressed="${!B.card.fx}">Taka only</button><button type="button" data-a="cfx" data-v="USD" aria-pressed="${!!B.card.fx}">Taka and USD</button></div>
+      ${B.card.fx?`<span style="font-weight:400">For dual-currency cards. Lines billed in US dollars stay in dollars.</span>`:""}</div>
+    ${B.card.fx?`<label class="f">Taka per US dollar (for estimates)<input id="b-rate" class="num" data-b="card.rate" type="number" inputmode="decimal" min="1" step="any" placeholder="122" value="${esc(B.card.rate||"")}"><span style="font-weight:400">Only used to estimate totals and to match USD charges to expenses you entered in taka.</span></label>`:""}`:B.type==="trip"?`<label class="f">Start date<input id="b-start" data-b="start" type="date" value="${esc(B.start||"")}"></label>`:B.type==="loan"?"":`<label class="f">Monthly budget (optional)<input id="b-budget" class="num" data-b="budget" type="number" inputmode="decimal" min="0" placeholder="0" value="${esc(B.budget||"")}"></label>`}</div>`;
   if(B.type==="card")h+=cardRulesFields();
   if(B.type==="trip")h+=`<div class="f">Who is on the trip?<span style="font-weight:400">Add each person, or a couple or family as one entry and set how many people it covers.</span>
     ${B.members.map((m,i)=>`<div class="mem"><input id="b-m-${i}" data-bm="${i}" maxlength="40" placeholder="Name" aria-label="Member name" value="${esc(m.name)}">
@@ -663,15 +666,15 @@ function clean(d){if(!d||!Array.isArray(d.books))throw new Error("shape");
     hue:Math.round(+b.hue||230)%360,start:isDate(b.start)?b.start:"",end:isDate(b.end)?b.end:"",budget:Math.max(0,+b.budget||0),created:+b.created||Date.now(),...(isFinite(+b.order)&&b.order!==null&&b.order!==""?{order:+b.order}:{}),
     members:(Array.isArray(b.members)?b.members:[]).filter(m=>m&&m.id).map(m=>({id:sid(m.id),name:String(m.name||"").slice(0,60),heads:Math.max(1,Math.min(99,Math.round(+m.heads||1)))}))}));
   books.forEach((nb,i)=>{const b=d.books.filter(b=>b&&b.id&&typeof b.name==="string")[i];if(nb.type!=="card")return;const c=b.card||{},r={};Object.keys(CT).forEach(k=>r[k]=c.rules&&k in c.rules?!!c.rules[k]:CT_DEFAULT[k]);
-    nb.card={last4:String(c.last4||"").replace(/\D/g,"").slice(-4),target:Math.max(1,Math.min(365,Math.round(+c.target||24))),feeStart:/^\d{2}-\d{2}$/.test(c.feeStart||"")?c.feeStart:"01-01",minAmt:Math.max(0,+c.minAmt||0),fee:Math.max(0,+c.fee||0),limit:Math.max(0,+c.limit||0),rules:r};if(c.nocount)nb.card.nocount=true;
+    nb.card={last4:String(c.last4||"").replace(/\D/g,"").slice(-4),target:Math.max(1,Math.min(365,Math.round(+c.target||24))),feeStart:/^\d{2}-\d{2}$/.test(c.feeStart||"")?c.feeStart:"01-01",minAmt:Math.max(0,+c.minAmt||0),fee:Math.max(0,+c.fee||0),limit:Math.max(0,+c.limit||0),rules:r};if(c.fx==="USD")nb.card.fx="USD";if(+c.rate>0)nb.card.rate=+c.rate;if(c.nocount)nb.card.nocount=true;
     nb.statements=(Array.isArray(b.statements)?b.statements:[]).filter(x=>x&&x.id).slice(0,500).map(x=>({id:sid(x.id),file:String(x.file||"").slice(0,120),from:isDate(x.from)?x.from:"",to:isDate(x.to)?x.to:"",count:Math.max(0,Math.round(+x.count||0)),total:Math.max(0,+x.total||0),added:+x.added||Date.now(),
-      due:Math.max(0,+x.due||0),min:Math.max(0,+x.min||0),dueDate:isDate(x.dueDate)?x.dueDate:"",paid:Math.max(0,+x.paid||0),paidOn:isDate(x.paidOn)?x.paidOn:"",stmtDate:isDate(x.stmtDate)?x.stmtDate:""}))});
+      due:Math.max(0,+x.due||0),min:Math.max(0,+x.min||0),dueDate:isDate(x.dueDate)?x.dueDate:"",paid:Math.max(0,+x.paid||0),paidOn:isDate(x.paidOn)?x.paidOn:"",stmtDate:isDate(x.stmtDate)?x.stmtDate:"",...(x.fx&&(+x.fx.due>0||+x.fx.paid>0)?{fx:{due:Math.max(0,+x.fx.due||0),min:Math.max(0,+x.fx.min||0),paid:Math.max(0,+x.fx.paid||0)}}:{})}))});
   const ids=new Set(books.map(b=>b.id));
   const tx=(Array.isArray(d.tx)?d.tx:[]).filter(t=>t&&ids.has(sid(t.bookId))&&isFinite(+t.amount)).map(t=>{const o={id:sid(t.id||uid()),bookId:sid(t.bookId),kind:t.kind==="settle"||t.kind==="loan"?t.kind:"expense",amount:Math.abs(+t.amount),
       desc:String(t.desc||"").slice(0,160),cat:CATS[t.cat]?t.cat:"other",date:isDate(t.date)?t.date:today(),note:String(t.note||"").slice(0,200),created:+t.created||Date.now()};if(typeof t.receipt==="string"&&t.receipt)o.receipt=sid(t.receipt);
     if(CT[t.ctype])o.ctype=t.ctype;if(t.count===true||t.count===false)o.count=t.count;if(typeof t.stmt==="string"&&t.stmt)o.stmt=sid(t.stmt);
     if(typeof t.via==="string"&&t.via)o.via=t.via==="cash"||t.via==="debit"?t.via:sid(t.via);if(typeof t.link==="string"&&t.link){o.link=sid(t.link);o.linkBook=sid(t.linkBook||"")}
-    if(typeof t.bank==="string"&&t.bank)o.bank=t.bank.slice(0,140);if(t.fromStmt===true)o.fromStmt=true;if(typeof t.mine==="string"&&t.mine)o.mine=sid(t.mine);if(["new","ok","dispute"].includes(t.chk))o.chk=t.chk;if(typeof t.lperson==="string"&&t.lperson.trim())o.lperson=t.lperson.trim().slice(0,60);if(typeof t.loanBook==="string"&&t.loanBook)o.loanBook=sid(t.loanBook);
+    if(typeof t.bank==="string"&&t.bank)o.bank=t.bank.slice(0,140);if(t.fromStmt===true)o.fromStmt=true;if(typeof t.mine==="string"&&t.mine)o.mine=sid(t.mine);if(["new","ok","dispute"].includes(t.chk))o.chk=t.chk;if(t.fx==="USD")o.fx="USD";if(typeof t.lperson==="string"&&t.lperson.trim())o.lperson=t.lperson.trim().slice(0,60);if(typeof t.loanBook==="string"&&t.loanBook)o.loanBook=sid(t.loanBook);
     if(o.kind==="settle"){o.from=sid(t.from||"");o.to=sid(t.to||"")}
     else if(o.kind==="loan"){o.dir=LD[t.dir]?t.dir:"lent";o.person=String(t.person||"").trim().slice(0,60)||"Someone";if(isDate(t.due))o.due=t.due;
       if(Array.isArray(t.plan)){const pl=t.plan.filter(x=>x&&isDate(x.date)&&+x.amount>0).slice(0,120).map(x=>({date:x.date,amount:Math.round(+x.amount*100)/100}));if(pl.length)o.plan=pl}}
@@ -773,7 +776,7 @@ const A={
       if(t.plan&&t.plan.length){F.pmode="inst";F.plan=t.plan.map(x=>({date:x.date,amount:String(x.amount)}));F.n=t.plan.length;F.first=t.plan[0].date;F.planEdited=true;
         const g=t.plan.length>1?daysTo(t.plan[1].date)-daysTo(t.plan[0].date):30;F.every=g===7?"w":g===14?"2w":"m"}
       openSheet("tx");return}newF(b);Object.assign(F,{id:t.id,kind:t.kind||"expense",amount:String(t.amount),desc:t.desc||"",cat:t.cat||"other",date:t.date,note:t.note||"",created:t.created});
-    F.catTouched=true;F.via=t.via||(b.type==="card"?"":"cash");F.lperson=t.lperson||"";F.loanBook=t.loanBook||"";F.link=t.link||"";F.linkBook=t.linkBook||"";if(b.type==="card"){F.ctype=t.ctype||"purchase";F.countMode=t.count===true?"yes":t.count===false?"no":"auto";F.stmt=t.stmt||""}
+    F.catTouched=true;F.fx=t.fx||"";F.keep={mine:t.mine,chk:t.chk,bank:t.bank,fromStmt:t.fromStmt};F.via=t.via||(b.type==="card"?"":"cash");F.lperson=t.lperson||"";F.loanBook=t.loanBook||"";F.link=t.link||"";F.linkBook=t.linkBook||"";if(b.type==="card"){F.ctype=t.ctype||"purchase";F.countMode=t.count===true?"yes":t.count===false?"no":"auto";F.stmt=t.stmt||""}
     if(t.receipt){const rid=t.receipt;F.receipt=rid;rurl(rid).then(u=>{if(F&&F.receipt===rid){F.receiptUrl=u||"";if(!u)F.scan={state:"error",msg:"This bill photo isn't on this phone."};drawSheet()}})}
     if(t.kind==="settle"){F.from=t.from;F.to=t.to}
     else if(b.type==="trip"){const pk=Object.keys(t.payers||{});F.multi=pk.length>1;F.payer=pk[0]||F.payer;pk.forEach(k=>F.pay[k]=String(t.payers[k]));const sp=t.split||{};F.mode=sp.mode||"heads";
@@ -800,7 +803,7 @@ const A={
         const ex=loanSum(lb).people.find(p=>pkey(p.name)===pkey(who));t.lperson=ex?ex.name:who;t.loanBook=lb.id}
       else viaPref(b.id,F.via)}
     if(F.link){t.link=F.link;t.linkBook=F.linkBook}
-    if(b.type==="card"&&F.kind==="expense"){t.ctype=CT[F.ctype]?F.ctype:"purchase";if(F.countMode!=="auto")t.count=F.countMode==="yes";if(F.stmt)t.stmt=F.stmt}
+    if(b.type==="card"&&F.kind==="expense"){t.ctype=CT[F.ctype]?F.ctype:"purchase";if(F.countMode!=="auto")t.count=F.countMode==="yes";if(F.stmt)t.stmt=F.stmt;if(F.fx&&isDual(b))t.fx="USD";["mine","chk","bank","fromStmt"].forEach(k=>{if(F.keep&&F.keep[k]!==undefined)t[k]=F.keep[k]})}
     if(F.kind==="expense"&&F.newReceipt){const rid="r"+uid();F.saving=true;try{await IDB.put(rid,F.newReceipt.blob);t.receipt=rid;RURL[rid]=F.newReceipt.url;F.newReceipt.kept=true;if(F.receipt)IDB.del(F.receipt).catch(()=>{})}catch(e){F.saving=false;return err("Couldn't save the bill photo on this phone. Remove it to save the entry without it.")}F.saving=false}
     else if(F.receipt&&(F.removeReceipt||F.kind!=="expense"))IDB.del(F.receipt).catch(()=>{});
     else if(F.receipt)t.receipt=F.receipt;
@@ -813,11 +816,13 @@ const A={
   newbook(d){B={id:null,type:d&&d.t||"trip",name:"",cur:(S.books[S.books.length-1]||{}).cur||"৳",start:"",budget:"",members:[{id:uid(),name:"",heads:1},{id:uid(),name:"",heads:1}],
     card:{last4:"",target:"24",feeDate:today(),minAmt:"",fee:"",limit:"",rules:Object.assign({},CT_DEFAULT)}};openSheet("book")},
   editbook(){const b=curBook();B=JSON.parse(JSON.stringify(b));B.budget=B.budget||"";
-    if(b.type==="card"){const c=cardOf(b);B.card={last4:c.last4,target:String(c.target),feeDate:feeYear(c,0).start,minAmt:c.minAmt?String(c.minAmt):"",fee:c.fee?String(c.fee):"",limit:b.card&&b.card.limit?String(b.card.limit):"",nocount:c.nocount,rules:Object.assign({},c.rules)}}
+    if(b.type==="card"){const c=cardOf(b);B.card={last4:c.last4,target:String(c.target),feeDate:feeYear(c,0).start,minAmt:c.minAmt?String(c.minAmt):"",fee:c.fee?String(c.fee):"",limit:b.card&&b.card.limit?String(b.card.limit):"",fx:b.card&&b.card.fx||"",rate:b.card&&b.card.rate?String(b.card.rate):"",nocount:c.nocount,rules:Object.assign({},c.rules)}}
     else B.card={last4:"",target:"24",feeDate:today(),minAmt:"",fee:"",rules:Object.assign({},CT_DEFAULT)};openSheet("book")},
   crule(d){B.card.rules[d.id]=!B.card.rules[d.id];drawSheet()},
   btype(d){B.type=d.t;drawSheet()},
   nocount(d){B.card.nocount=d.v==="1";drawSheet()},
+  cfx(d){B.card.fx=d.v;drawSheet()},
+  tfx(d){F.fx=d.v;drawSheet()},
   addmember(){B.members.push({id:uid(),name:"",heads:1});drawSheet();const i=$("#b-m-"+(B.members.length-1));i&&i.focus()},
   rmmember(d){B.members.splice(+d.i,1);drawSheet()},
   heads(d){const m=B.members[+d.i];m.heads=Math.max(1,Math.min(99,m.heads+ +d.d));drawSheet()},
@@ -825,7 +830,7 @@ const A={
     const nb={id:B.id||uid(),type:B.type,name,cur:B.cur,hue:B.hue??[160,205,265,25,330,48][S.books.length%6],start:B.type==="trip"&&isDate(B.start)?B.start:"",end:B.end||"",budget:B.type==="personal"?Math.max(0,parseFloat(B.budget)||0):0,created:B.created||Date.now(),members:[]};
     if(B.type==="card"){const nc=!!B.card.nocount,t=nc?Math.max(1,Math.round(+B.card.target)||24):Math.round(+B.card.target);if(!(t>=1&&t<=365))return err("Enter how many transactions the bank needs, for example 24.");
       if(!isDate(B.card.feeDate))return err("Pick the date your fee year starts. It's usually when the card was issued or renewed.");
-      nb.card={last4:String(B.card.last4||"").replace(/\D/g,"").slice(-4),target:t,feeStart:B.card.feeDate.slice(5),minAmt:Math.max(0,+B.card.minAmt||0),fee:Math.max(0,+B.card.fee||0),limit:Math.max(0,parseFloat(B.card.limit)||0),rules:Object.assign({},B.card.rules)};if(nc)nb.card.nocount=true;
+      nb.card={last4:String(B.card.last4||"").replace(/\D/g,"").slice(-4),target:t,feeStart:B.card.feeDate.slice(5),minAmt:Math.max(0,+B.card.minAmt||0),fee:Math.max(0,+B.card.fee||0),limit:Math.max(0,parseFloat(B.card.limit)||0),rules:Object.assign({},B.card.rules)};if(B.card.fx){nb.card.fx="USD";const rt=parseFloat(B.card.rate);if(rt>0)nb.card.rate=rt}if(nc)nb.card.nocount=true;
       nb.statements=Array.isArray(B.statements)?B.statements:[]}
     if(B.type==="trip"){nb.members=B.members.filter(m=>m.name.trim()).map(m=>({id:m.id,name:m.name.trim(),heads:m.heads}));
       if(B.members.some(m=>!m.name.trim())&&B.id&&nb.members.length<B.members.length&&txOf(B).length)return err("Every member needs a name.");
@@ -871,10 +876,10 @@ const A={
   stmtadd(){addStatement()},
   stmt(d){const x=(curBook().statements||[]).find(s=>s.id===d.id);openSheet("stmtinfo",{sid:d.id,bill:billOf(x)})},
   addbill(){openSheet("stmtinfo",{sid:"",bill:billOf(null,true)});setTimeout(()=>{const i=$('[data-bl="due"]');i&&i.focus()},80)},
-  payfill(d){const L=ui.sheet.bill;L.amt=d.m==="none"?"":d.m==="min"?L.min:L.due;if(d.m!=="none"&&!L.paidOn)L.paidOn=today();drawSheet()},
+  payfill(d){const L=ui.sheet.bill;L.amt=d.m==="none"?"":d.m==="min"?L.min:L.due;if(L.dueFx||L.amtFx)L.amtFx=d.m==="none"?"":d.m==="min"?L.minFx:L.dueFx;if(d.m!=="none"&&!L.paidOn)L.paidOn=today();drawSheet()},
   billedit(){ui.sheet.bill.edit=true;drawSheet();setTimeout(()=>{const i=$('[data-bl="due"]');i&&i.focus()},40)},
   billsave(){const b=curBook(),v=billVals();if(v.e)return err(v.e);const id=ui.sheet.sid;
-    if(!id&&!v.due&&!v.dueDate)return err("Enter the outstanding amount or the last date of payment.");
+    if(!id&&!v.due&&!v.dueDate&&!v.fx)return err("Enter the outstanding amount or the last date of payment.");
     delete v.e;if(id){const x=(b.statements||[]).find(s=>s.id===id);if(x)Object.assign(x,v)}
     else b.statements=(b.statements||[]).concat([Object.assign({id:"s"+uid(),file:"",from:"",to:"",count:0,total:0,added:Date.now()},v)]);
     save();closeSheet();render();toast(v.paid>0&&v.paid>=v.due?"Bill marked as paid":id?"Bill saved":"Bill added",true)},
@@ -1062,24 +1067,30 @@ function guessCat(desc,ct){if(ct==="recharge"||ct==="utility")return"bills";if(c
   if(/shwapno|agora|meena|unimart|daraz|\bmart\b|shop|store|fashion|aarong|bazar|mall|apex|bata|chaldal|amazon|aliexpress/.test(d))return"shopping";
   return"other"}
 function cardOf(b){const c=b.card||{};return{last4:c.last4||"",target:Math.max(1,+c.target||24),feeStart:/^\d{2}-\d{2}$/.test(c.feeStart||"")?c.feeStart:"01-01",minAmt:Math.max(0,+c.minAmt||0),fee:Math.max(0,+c.fee||0),nocount:!!c.nocount,rules:Object.assign({},CT_DEFAULT,c.rules||{})}}
-function verdict(t,c,cur){if(t.count===true)return{ok:true,why:"You marked this as counting"};if(t.count===false)return{ok:false,why:"You marked this as not counting"};
+function verdict(t,c,cur,b){if(t.count===true)return{ok:true,why:"You marked this as counting"};if(t.count===false)return{ok:false,why:"You marked this as not counting"};
   const ct=CT[t.ctype]?t.ctype:"purchase";if(!c.rules[ct])return{ok:false,why:CT[ct][0]+" doesn't count on this card"};
-  if(c.minAmt&&(+t.amount||0)<c.minAmt)return{ok:false,why:"Under the "+fmt(c.minAmt,cur)+" minimum"};return{ok:true,why:"Counts toward the fee waiver"}}
+  if(c.minAmt&&(t.fx?(+t.amount||0)*fxRate(b):(+t.amount||0))<c.minAmt)return{ok:false,why:"Under the "+fmt(c.minAmt,cur)+" minimum"};return{ok:true,why:"Counts toward the fee waiver"}}
 const mkd=(y,m,d)=>`${y}-${String(m).padStart(2,"0")}-${String(Math.min(d,new Date(y,m,0).getDate())).padStart(2,"0")}`;
 const dayN=(a,b)=>Math.round((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/864e5);
 const longDate=s=>new Date(s+"T00:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
 function feeYear(c,off){const [mm,dd]=c.feeStart.split("-").map(Number),t=today();let y=+t.slice(0,4);if(mkd(y,mm,dd)>t)y--;y+=off||0;return{start:mkd(y,mm,dd),end:addDays(mkd(y+1,mm,dd),-1)}}
 function monthsOf(fy){const out=[];let [y,m]=fy.start.split("-").map(Number);const [ey,em]=fy.end.split("-").map(Number);while(y<ey||(y===ey&&m<=em)){out.push(`${y}-${String(m).padStart(2,"0")}`);if(++m>12){m=1;y++}}return out}
+/* dual-currency cards: lines billed in USD keep their USD amount; the rate is only for estimates and matching */
+const FXS={USD:"$"};
+const isDual=b=>!!(b&&b.card&&b.card.fx);
+const fxRate=b=>+(b&&b.card&&b.card.rate)||122;
+const amtB=(t,b)=>(+t.amount||0)*(t.fx?fxRate(b):1);
+const money=(t,b,p)=>t.fx?fmtP(+t.amount||0,FXS[t.fx]||"$"):(p?fmtP:fmt)(+t.amount||0,b.cur);
 function cardStats(b,off){const c=cardOf(b),fy=feeYear(c,off),t=today(),list=txOf(b).filter(x=>x.kind!=="settle"&&x.date>=fy.start&&x.date<=fy.end);
   const months=monthsOf(fy).map(ym=>({ym,cnt:0,not:0,amt:0})),mi={};months.forEach((m,i)=>mi[m.ym]=i);const types={};let count=0,spend=0;
-  list.forEach(x=>{const v=verdict(x,c,b.cur),m=months[mi[x.date.slice(0,7)]],a=+x.amount||0,k=CT[x.ctype]?x.ctype:"purchase";x._v=v;spend+=a;
+  let spendFx=0;list.forEach(x=>{const v=verdict(x,c,b.cur,b),m=months[mi[x.date.slice(0,7)]],a=amtB(x,b),k=CT[x.ctype]?x.ctype:"purchase";x._v=v;if(x.fx)spendFx+=+x.amount||0;else spend+=a;
     if(v.ok)count++;if(m){m[v.ok?"cnt":"not"]++;m.amt+=a}const ty=types[k]=types[k]||{n:0,amt:0,ok:0};ty.n++;ty.amt+=a;if(v.ok)ty.ok++});
   const total=dayN(fy.start,fy.end)+1,past=off<0||t>fy.end,elapsed=past?total:Math.max(0,Math.min(total,dayN(fy.start,t)+1)),expected=c.target*elapsed/total,
     rem=Math.max(0,c.target-count),daysLeft=past?0:Math.max(0,dayN(t,fy.end)),done=count>=c.target;
   const status=done?"done":past?"missed":count+.5>=expected?"ontrack":"behind",monthsLeft=Math.max(1,Math.ceil(daysLeft/30.4));
   const line=done?(count>c.target?`Fee waiver reached, with ${count-c.target} to spare.`:"Fee waiver reached."):past?`Missed by ${rem}. The annual fee${c.fee?" of "+fmt(c.fee,b.cur):""} may apply.`
     :`${rem} more by ${longDate(fy.end)}, about ${Math.ceil(rem/monthsLeft)} a month.`;
-  return{c,fy,list,months,types,count,spend,expected,rem,daysLeft,done,status,line,past}}
+  return{c,fy,list,months,types,count,spend,spendFx:r2(spendFx),expected,rem,daysLeft,done,status,line,past}}
 
 /* ---------- credit cards: views ---------- */
 function cardView(b){const off=ui.fy||0,st=cardStats(b,off),c=st.c,list=st.list;
@@ -1088,8 +1099,8 @@ function cardView(b){const off=ui.fy||0,st=cardStats(b,off),c=st.c,list=st.list;
   const head=`${topbar(b)}
   ${billCard(b)}
   <div class="monthnav"><button class="iconbtn" data-a="fy" data-d="-1" aria-label="Previous fee year">${ico(I.left)}</button><b class="num" style="font-size:1rem;text-align:center">${longDate(st.fy.start)} to ${longDate(st.fy.end)}</b><button class="iconbtn" data-a="fy" data-d="1" aria-label="Next fee year"${off>=0?" disabled style='opacity:.35'":""}>${ico(I.right)}</button></div>
-  ${checkBlock(b)}${c.nocount?`<section class="totals"><span class="eyebrow">Spent this fee year</span><b class="big num">${fmt(st.spend,b.cur)}</b><div class="sub num"><span>${st.list.length} ${st.list.length===1?"transaction":"transactions"}</span>${c.fee?`<span>Annual fee ${fmt(c.fee,b.cur)}</span>`:""}</div></section>`:`<section class="totals"><span class="eyebrow">Qualifying transactions</span><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><b class="big num">${st.count} of ${c.target}</b>${pill}</div>
-    <div class="sub num"><span>${st.line}</span><span>Spent ${fmt(st.spend,b.cur)} this fee year</span>${c.fee&&!st.past?`<span>Saves the ${fmt(c.fee,b.cur)} annual fee</span>`:""}</div></section>
+  ${checkBlock(b)}${c.nocount?`<section class="totals"><span class="eyebrow">Spent this fee year</span><b class="big num">${fmt(st.spend,b.cur)}${st.spendFx?`<small> + ${fmtP(st.spendFx,"$")}</small>`:""}</b><div class="sub num"><span>${st.list.length} ${st.list.length===1?"transaction":"transactions"}</span>${c.fee?`<span>Annual fee ${fmt(c.fee,b.cur)}</span>`:""}</div></section>`:`<section class="totals"><span class="eyebrow">Qualifying transactions</span><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><b class="big num">${st.count} of ${c.target}</b>${pill}</div>
+    <div class="sub num"><span>${st.line}</span><span>Spent ${fmt(st.spend,b.cur)}${st.spendFx?" and "+fmtP(st.spendFx,"$"):""} this fee year</span>${c.fee&&!st.past?`<span>Saves the ${fmt(c.fee,b.cur)} annual fee</span>`:""}</div></section>
   <div class="card ruled"><div class="punch" role="img" aria-label="${st.count} of ${c.target} qualifying transactions${paceAt>=0?". By today you should have about "+Math.round(st.expected):""}">${Array.from({length:Math.min(c.target,120)},(_,i)=>`<i class="${i<st.count?"on":""}${i===paceAt?" pace":""}"></i>`).join("")}</div>
     ${paceAt>=0?`<div class="pnote">The dashed circle is where you'd be at an even pace today.</div>`:""}</div>`}
   <div class="tabs"><button aria-pressed="${ui.tab==="overview"}" data-a="tab" data-t="overview">Overview</button><button aria-pressed="${ui.tab==="log"}" data-a="tab" data-t="log">Transactions</button></div>`;
@@ -1103,18 +1114,19 @@ function cardView(b){const off=ui.fy||0,st=cardStats(b,off),c=st.c,list=st.list;
     ${isoCard("camt","Spending each month",ms.map(m=>m.amt),lab)}
     ${tys.length?`<section><h2>By transaction type</h2><div class="card ruled">${tys.map(([k,v])=>`<div class="trow"><span><b>${CT[k][0]}</b></span><span class="meta num">${v.n} ${v.n===1?"transaction":"transactions"}, ${fmt(v.amt,b.cur)}${!c.nocount&&v.ok&&v.ok<v.n?`, ${v.ok} counted`:""}</span>${c.nocount?"":`<span class="pill ${c.rules[k]?"ok":"wait"}">${c.rules[k]?"Counts":"Doesn't count"}</span>`}</div>`).join("")}</div></section>`:""}
     ${list.length?`<section><h2>Where it went</h2>${catBlock(list,b.cur)}</section>`:""}
-    ${(b.statements||[]).length?`<section><h2>Bills and statements</h2><div class="card ruled">${b.statements.slice().sort((x,y)=>stKey(y).localeCompare(stKey(x))).map(x=>{const bs=billStatus(x);return `<button class="tx" data-a="stmt" data-id="${esc(x.id)}">${ico(I.file)}<span class="d">${x.dueDate?"Bill due "+longDate(x.dueDate):x.to?"Statement to "+longDate(x.to):"Statement"}</span><span class="a num">${fmtP(x.due||x.total,b.cur)}</span><span class="s">${bs?`<span class="${bs.cls==="bad"?"neg":bs.cls==="ok"?"pos":""}">${bs.txt}</span>`:"No bill details yet. Tap to add them"}${x.count?`, ${x.count} ${x.count===1?"transaction":"transactions"}`:""}</span></button>`}).join("")}</div></section>`:""}`}
+    ${(b.statements||[]).length?`<section><h2>Bills and statements</h2><div class="card ruled">${b.statements.slice().sort((x,y)=>stKey(y).localeCompare(stKey(x))).map(x=>{const bs=billStatus(x);return `<button class="tx" data-a="stmt" data-id="${esc(x.id)}">${ico(I.file)}<span class="d">${x.dueDate?"Bill due "+longDate(x.dueDate):x.to?"Statement to "+longDate(x.to):"Statement"}</span><span class="a num">${x.due?fmtP(x.due,b.cur):x.fx&&x.fx.due?fmtP(x.fx.due,"$"):fmtP(x.total,b.cur)}</span><span class="s">${bs?`<span class="${bs.cls==="bad"?"neg":bs.cls==="ok"?"pos":""}">${bs.txt}</span>`:"No bill details yet. Tap to add them"}${x.count?`, ${x.count} ${x.count===1?"transaction":"transactions"}`:""}</span></button>`}).join("")}</div></section>`:""}`}
   else{const kinds=["All",...(c.nocount?[]:["yes","no"]),...Object.keys(CT).filter(k=>st.types[k])];if(!kinds.includes(ui.filter))ui.filter="All";
     const shown=list.filter(x=>ui.filter==="All"||(ui.filter==="yes"?x._v.ok:ui.filter==="no"?!x._v.ok:(x.ctype||"purchase")===ui.filter));
     const g={};shown.forEach(x=>(g[x.date.slice(0,7)]=g[x.date.slice(0,7)]||[]).push(x));
     body=`<div class="chips">${kinds.map(k=>`<button class="chip" aria-pressed="${k===ui.filter}" data-a="filter" data-c="${k}">${k==="All"?"All":k==="yes"?"Counts":k==="no"?"Doesn't count":CT[k][0]}</button>`).join("")}</div>
     ${Object.keys(g).sort().reverse().map(ym=>{const it=g[ym].sort((x,y)=>y.date.localeCompare(x.date)||(y.created||0)-(x.created||0)),ok=it.filter(x=>x._v.ok).length;
-      return `<div class="card ruled"><div class="day-head"><span>${monthLabel(ym)}</span><span class="num">${c.nocount?it.length+(it.length===1?" transaction":" transactions"):ok+" of "+it.length+" count"}</span></div>${it.map(x=>`<button class="tx" data-a="edittx" data-id="${esc(x.id)}">${catIco(x.cat)}<span class="d">${esc(x.desc)}</span><span class="a num">${fmt(x.amount,b.cur)}</span><span class="s">${new Date(x.date+"T00:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short"})}, ${CT[x.ctype||"purchase"][0]}${x.bank&&x.bank!==x.desc?`, bank: ${esc(x.bank)}`:""}${x.mine?(()=>{const o=S.tx.find(q=>q.id===x.mine);return o?`, <span class="yes">matches your “${esc(o.desc)}”</span>`:""})():x.chk==="dispute"?`, <span class="no">disputed</span>`:x.chk==="new"?`, <span class="no">not in your expenses</span>`:""}${c.nocount?"":`. <span class="${x._v.ok?"yes":"no"}">${x._v.ok?"Counts":x._v.why}</span>`}${x.receipt?CLIP:""}</span></button>`).join("")}</div>`}).join("")
+      return `<div class="card ruled"><div class="day-head"><span>${monthLabel(ym)}</span><span class="num">${c.nocount?it.length+(it.length===1?" transaction":" transactions"):ok+" of "+it.length+" count"}</span></div>${it.map(x=>`<button class="tx" data-a="edittx" data-id="${esc(x.id)}">${catIco(x.cat)}<span class="d">${esc(x.desc)}</span><span class="a num">${money(x,b)}</span><span class="s">${new Date(x.date+"T00:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short"})}, ${x.fx?"USD, ":""}${CT[x.ctype||"purchase"][0]}${x.bank&&x.bank!==x.desc?`, bank: ${esc(x.bank)}`:""}${x.mine?(()=>{const o=S.tx.find(q=>q.id===x.mine);return o?`, <span class="yes">matches your “${esc(o.desc)}”</span>`:""})():x.chk==="dispute"?`, <span class="no">disputed</span>`:x.chk==="new"?`, <span class="no">not in your expenses</span>`:""}${c.nocount?"":`. <span class="${x._v.ok?"yes":"no"}">${x._v.ok?"Counts":x._v.why}</span>`}${x.receipt?CLIP:""}</span></button>`).join("")}</div>`}).join("")
       ||'<div class="empty">Nothing matches this filter in this fee year.</div>'}`}
   return head+body+'<button class="fab" data-a="addtx">+ Add</button>'}
-function cardFields(b){const c=cardOf(b),v=verdict({ctype:F.ctype,amount:parseFloat(F.amount)||0,count:F.countMode==="auto"?undefined:F.countMode==="yes"},c,b.cur);
-  if(c.nocount)return `<div class="f">Transaction type<div class="chips">${Object.keys(CT).map(k=>`<button type="button" class="chip" data-a="ctype" data-c="${k}" aria-pressed="${F.ctype===k}">${CT[k][0]}</button>`).join("")}</div></div>`;
-  return `<div class="f">Transaction type<div class="chips">${Object.keys(CT).map(k=>`<button type="button" class="chip" data-a="ctype" data-c="${k}" aria-pressed="${F.ctype===k}">${CT[k][0]}</button>`).join("")}</div></div>
+function cardFields(b){const c=cardOf(b),v=verdict({ctype:F.ctype,amount:parseFloat(F.amount)||0,fx:F.fx||"",count:F.countMode==="auto"?undefined:F.countMode==="yes"},c,b.cur,b);
+  const cx=isDual(b)?`<div class="f">Currency<div class="seg"><button type="button" data-a="tfx" data-v="" aria-pressed="${!F.fx}">Taka (${esc(b.cur)})</button><button type="button" data-a="tfx" data-v="USD" aria-pressed="${!!F.fx}">US dollar ($)</button></div></div>`:"";
+  if(c.nocount)return cx+`<div class="f">Transaction type<div class="chips">${Object.keys(CT).map(k=>`<button type="button" class="chip" data-a="ctype" data-c="${k}" aria-pressed="${F.ctype===k}">${CT[k][0]}</button>`).join("")}</div></div>`;
+  return cx+`<div class="f">Transaction type<div class="chips">${Object.keys(CT).map(k=>`<button type="button" class="chip" data-a="ctype" data-c="${k}" aria-pressed="${F.ctype===k}">${CT[k][0]}</button>`).join("")}</div></div>
   <div class="f">Counts toward the fee waiver?<div class="seg"><button data-a="cmode" data-m="auto" aria-pressed="${F.countMode==="auto"}">Card rules</button><button data-a="cmode" data-m="yes" aria-pressed="${F.countMode==="yes"}">Yes</button><button data-a="cmode" data-m="no" aria-pressed="${F.countMode==="no"}">No</button></div>
     <span class="${v.ok?"yes":"no"}" style="font-size:.95rem">${v.ok?"This counts toward the waiver.":v.why+"."}</span></div>`}
 function cardRulesFields(){const r=B.card.rules,nc=!!B.card.nocount;
@@ -1141,59 +1153,69 @@ function stmtInfoSheet(){const b=curBook(),x=ui.sheet.sid?(b.statements||[]).fin
 const shortDate=s=>new Date(s+"T00:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short"});
 const stKey=x=>x.dueDate||x.to||"";
 const r2=n=>Math.round((+n||0)*100)/100;
-function billStatus(x){if(!x||!(x.due>0))return null;const left=r2(Math.max(0,x.due-(x.paid||0))),t=today();
-  if(left<=0)return{left:0,cls:"ok",txt:"Paid in full"+(x.paidOn?" on "+shortDate(x.paidOn):"")};
-  const part=x.paid>0?`Paid ${fmtN(x.paid)}, ${fmtN(left)} left`:"";
-  if(x.dueDate&&x.dueDate<t){const d=Math.round((new Date(t)-new Date(x.dueDate))/864e5);return{left,cls:"bad",txt:(part?part+". ":"")+"Overdue by "+d+(d===1?" day":" days")}}
-  if(x.dueDate){const d=Math.round((new Date(x.dueDate)-new Date(t))/864e5);return{left,cls:d<=5?"bad":"wait",txt:(part?part+". ":"Not paid. ")+(d===0?"Due today":"Due in "+d+(d===1?" day":" days"))}}
-  return{left,cls:"wait",txt:part||"Not paid yet"}}
+const hasBill=x=>!!x&&(x.due>0||!!(x.fx&&x.fx.due>0));
+function billStatus(x){if(!hasBill(x))return null;const left=r2(Math.max(0,(x.due||0)-(x.paid||0))),f=x.fx||{},leftFx=r2(Math.max(0,(f.due||0)-(f.paid||0))),t=today();
+  if(left<=0&&leftFx<=0)return{left:0,leftFx:0,cls:"ok",txt:"Paid in full"+(x.paidOn?" on "+shortDate(x.paidOn):"")};
+  const lt=[left>0?fmtN(left):"",leftFx>0?fmtP(leftFx,"$"):""].filter(Boolean).join(" + "),paidAny=x.paid>0||f.paid>0;
+  const part=paidAny?`Paid ${[x.paid>0?fmtN(x.paid):"",f.paid>0?fmtP(f.paid,"$"):""].filter(Boolean).join(" + ")}, ${lt} left`:"";
+  const R=o=>Object.assign(o,{leftFx,left:left>0?left:(leftFx>0?.0001:0)});
+  if(x.dueDate&&x.dueDate<t){const d=Math.round((new Date(t)-new Date(x.dueDate))/864e5);return R({cls:"bad",txt:(part?part+". ":"")+"Overdue by "+d+(d===1?" day":" days")})}
+  if(x.dueDate){const d=Math.round((new Date(x.dueDate)-new Date(t))/864e5);return R({cls:d<=5?"bad":"wait",txt:(part?part+". ":"Not paid. ")+(d===0?"Due today":"Due in "+d+(d===1?" day":" days"))})}
+  return R({cls:"wait",txt:part||"Not paid yet"})}
 let fmtCur="৳";const fmtN=n=>fmtP(n,fmtCur);
-function nextBill(b){fmtCur=b.cur;const l=(b.statements||[]).filter(x=>x.due>0).sort((x,y)=>stKey(y).localeCompare(stKey(x)));
+function nextBill(b){fmtCur=b.cur;const l=(b.statements||[]).filter(hasBill).sort((x,y)=>stKey(y).localeCompare(stKey(x)));
   return l.find(x=>billStatus(x).left>0&&x.dueDate&&x.dueDate<today())||l[0]||null}
-function cardOwed(b){const st=(b.statements||[]),bills=st.filter(x=>x.due>0).sort((x,y)=>stKey(y).localeCompare(stKey(x))),bill=bills[0]||null;
+function cardOwed(b){fmtCur=b.cur;const st=(b.statements||[]),bills=st.filter(hasBill).sort((x,y)=>stKey(y).localeCompare(stKey(x))),bill=bills[0]||null;
   const dOf=x=>x.stmtDate||x.to||(x.added?new Date(x.added).toISOString().slice(0,10):""),last=st.slice().sort((x,y)=>dOf(y).localeCompare(dOf(x))||(y.added||0)-(x.added||0))[0],cut=last&&(last.stmtDate||last.to);
-  const billed=new Set(txOf(b).filter(t=>t.mine).map(t=>t.mine)),newer=txOf(b).filter(t=>t.kind!=="settle"&&!t.stmt).concat(ownCardTx(b).filter(t=>!billed.has(t.id))).filter(t=>!last||(cut?t.date>cut:(t.created||0)>(last.added||0))),unbilled=r2(newer.reduce((a,t)=>a+(+t.amount||0),0));
-  const billLeft=bill?billStatus(bill).left:0,total=r2(billLeft+unbilled),limit=(b.card&&b.card.limit)||0;
-  return{bill,billLeft,unbilled,count:newer.length,total,limit,avail:limit?r2(limit-total):null}}
+  const billed=new Set(txOf(b).filter(t=>t.mine).map(t=>t.mine)),newer=txOf(b).filter(t=>t.kind!=="settle"&&!t.stmt).concat(ownCardTx(b).filter(t=>!billed.has(t.id))).filter(t=>!last||(cut?t.date>cut:(t.created||0)>(last.added||0))),unbilledFx=r2(newer.filter(t=>t.fx).reduce((a,t)=>a+(+t.amount||0),0)),unbilled=r2(newer.filter(t=>!t.fx).reduce((a,t)=>a+(+t.amount||0),0));
+  const bs=bill&&billStatus(bill),billLeft=bs?r2(bs.left>=.005?bs.left:0):0,billLeftFx=bs?bs.leftFx:0,total=r2(billLeft+unbilled),totalFx=r2(billLeftFx+unbilledFx),limit=(b.card&&b.card.limit)||0;
+  return{bill,billLeft,billLeftFx,unbilled,unbilledFx,count:newer.length,total,totalFx,limit,avail:limit?r2(limit-total-totalFx*fxRate(b)):null}}
 function billCard(b){const o=cardOwed(b),x=o.bill,c=b.cur;
   if(!x&&!o.unbilled&&!o.limit)return `<button class="billcard empty-bill" data-a="addbill">${ico(I.plus)}<span><b>Add this month's bill</b><span>Amount due, payment due date and what you've paid</span></span></button>`;
   const bs=x&&billStatus(x),late=bs&&bs.left>0&&x.dueDate&&x.dueDate<today(),cls=late||(bs&&bs.cls==="bad"&&bs.left>0)?"bad":o.total>0?"wait":"ok";
   const rows=[];
-  if(x)rows.push(`<div class="r"><span>Bill${x.dueDate?", pay by "+longDate(x.dueDate):""}</span><b class="${bs.left>0&&bs.cls==="bad"?"neg":bs.left<=0?"pos":""}">${bs.left>0?fmtP(bs.left,c)+" left":"Paid"}</b></div>`);
+  if(x)rows.push(`<div class="r"><span>Bill${x.dueDate?", pay by "+longDate(x.dueDate):""}</span><b class="${bs.left>0&&bs.cls==="bad"?"neg":bs.left<=0?"pos":""}">${bs.left>0?[o.billLeft>0?fmtP(o.billLeft,c):"",o.billLeftFx>0?fmtP(o.billLeftFx,"$"):""].filter(Boolean).join(" + ")+" left":"Paid"}</b></div>`);
+  if(x&&x.fx&&x.fx.min&&o.billLeftFx>0)rows.push(`<div class="r"><span>Minimum due in USD</span><b>${fmtP(x.fx.min,"$")}</b></div>`);
   if(x&&x.min&&bs.left>0)rows.push(`<div class="r"><span>Minimum due</span><b>${fmtP(x.min,c)}</b></div>`);
-  if(o.unbilled)rows.push(`<div class="r"><span>Your spending since the last bill, estimate (${o.count})</span><b>${fmtP(o.unbilled,c)}</b></div>`);
+  if(o.unbilled||o.unbilledFx)rows.push(`<div class="r"><span>Your spending since the last bill, estimate (${o.count})</span><b>${[o.unbilled?fmtP(o.unbilled,c):"",o.unbilledFx?fmtP(o.unbilledFx,"$"):""].filter(Boolean).join(" + ")}</b></div>`);
   if(o.limit)rows.push(`<div class="r"><span>Available of ${fmtP(o.limit,c)} limit</span><b class="${o.avail<0?"neg":""}">${fmtP(o.avail,c)}</b></div>`);
-  const pct=o.limit?Math.min(100,Math.max(0,o.total/o.limit*100)):x?Math.min(100,(x.paid||0)/x.due*100):0;
+  const pct=o.limit?Math.min(100,Math.max(0,o.total/o.limit*100)):x?Math.min(100,x.due>0?(x.paid||0)/x.due*100:x.fx&&x.fx.due>0?(x.fx.paid||0)/x.fx.due*100:0):0;
   return `<section class="billcard ${cls}"><div class="bc-top"><span class="eyebrow">Still to pay</span>${late?'<span class="pill bad">Overdue</span>':bs&&bs.left<=0&&!o.unbilled?'<span class="pill ok">Paid</span>':""}</div>
-    <b class="big num">${fmtP(o.total,c)}</b>
+    <b class="big num">${fmtP(o.total,c)}${o.totalFx>0?`<small> + ${fmtP(o.totalFx,"$")}</small>`:""}</b>
     ${x&&bs.left>0?`<div class="sub">${bs.txt}</div>`:""}
     ${o.limit||x?`<div class="bar${o.limit?" lim":""}"><i style="width:${pct.toFixed(1)}%"></i></div>`:""}
     <div class="preview num">${rows.join("")}</div>
     <div class="actions" style="margin:0">${x?`<button class="btn ${bs.left>0?"primary":""}" data-a="stmt" data-id="${esc(x.id)}">${bs.left>0?"Record payment":"View bill"}</button>`:""}<button class="btn" data-a="addbill">${x?"New bill":"Add bill"}</button></div></section>`}
-function billOf(x,edit){x=x||{};const has=x.due>0||!!x.dueDate;
-  return{due:x.due?String(x.due):"",min:x.min?String(x.min):"",dueDate:x.dueDate||"",amt:x.paid?String(x.paid):"",paidOn:x.paidOn||today(),edit:edit||!has}}
+function billOf(x,edit){x=x||{};const f=x.fx||{},has=x.due>0||!!x.dueDate||f.due>0;
+  return{due:x.due?String(x.due):"",min:x.min?String(x.min):"",dueDate:x.dueDate||"",amt:x.paid?String(x.paid):"",paidOn:x.paidOn||today(),edit:edit||!has,
+    dueFx:f.due?String(f.due):"",minFx:f.min?String(f.min):"",amtFx:f.paid?String(f.paid):""}}
 function daysTo(d){return Math.round((new Date(d+"T00:00:00")-new Date(today()+"T00:00:00"))/864e5)}
-function billFields(b,review){const L=ui.sheet.bill||(ui.sheet.bill=billOf()),c=esc(b.cur),due=+L.due||0,min=+L.min||0,paid=+L.amt||0,left=r2(Math.max(0,due-paid)),au=L.auto||{};
+function billFields(b,review){const L=ui.sheet.bill||(ui.sheet.bill=billOf()),c=esc(b.cur),due=+L.due||0,min=+L.min||0,paid=+L.amt||0,left=r2(Math.max(0,due-paid)),au=L.auto||{},dual=isDual(b)||+L.dueFx>0;
   let h;
   if(!L.edit){const dd=L.dueDate?daysTo(L.dueDate):null;
     h=`<div class="billsum">
       <div class="bs-main"><span>Outstanding amount</span><b class="num">${due?fmtP(due,b.cur):"Not found"}</b></div>
+      ${dual?`<div class="bs-row"><div><span>Outstanding in USD</span><b class="num">${+L.dueFx?fmtP(+L.dueFx,"$"):"Not found"}</b></div><div><span>Minimum in USD</span><b class="num">${+L.minFx?fmtP(+L.minFx,"$"):"Not found"}</b></div></div>`:""}
       <div class="bs-row"><div><span>Minimum due</span><b class="num">${min?fmtP(min,b.cur):"Not found"}</b></div>
         <div><span>Last date of payment</span><b class="num">${L.dueDate?longDate(L.dueDate):"Not found"}</b>${dd!=null?`<small class="${dd<0?"neg":dd<=5?"neg":"muted"}">${dd<0?"Overdue by "+(-dd)+(dd===-1?" day":" days"):dd===0?"Due today":dd+(dd===1?" day":" days")+" left"}</small>`:""}</div></div>
       <div class="bs-foot"><span class="muted">${review?(au.due||au.min||au.dueDate?"Read from the statement":"Not found in the statement"):"From your statement"}</span><button type="button" class="link" data-a="billedit">Edit</button></div></div>`}
   else h=`${review?`<p class="muted" style="margin:0;font-size:.92rem">${au.due||au.dueDate?"Fix anything that was read wrong.":"These weren't found in the file. Type them in from the statement."}</p>`:""}
     <div class="grid2"><label class="f">Outstanding amount (${c})<input class="amount num${au.due?" filled":""}" data-bl="due" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${esc(L.due)}"></label>
     <label class="f">Minimum due (${c})<input class="num${au.min?" filled":""}" data-bl="min" type="number" inputmode="decimal" min="0" step="any" placeholder="Optional" value="${esc(L.min)}"></label></div>
+    ${dual?`<div class="grid2"><label class="f">Outstanding in USD ($)<input class="num${au.dueFx?" filled":""}" data-bl="dueFx" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${esc(L.dueFx||"")}"></label>
+    <label class="f">Minimum in USD ($)<input class="num${au.minFx?" filled":""}" data-bl="minFx" type="number" inputmode="decimal" min="0" step="any" placeholder="Optional" value="${esc(L.minFx||"")}"></label></div>`:""}
     <label class="f">Last date of payment<input class="${au.dueDate?"filled":""}" data-bl="dueDate" type="date" value="${esc(L.dueDate)}"></label>`;
-  return h+`<label class="f">Amount you paid (${c})<input id="bl-amt" class="amount num" data-bl="amt" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${esc(L.amt)}"></label>
+  return h+`${dual?`<div class="grid2">`:""}<label class="f">Amount you paid (${c})<input id="bl-amt" class="amount num" data-bl="amt" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${esc(L.amt)}"></label>${dual?`<label class="f">Paid in USD ($)<input class="amount num" data-bl="amtFx" type="number" inputmode="decimal" min="0" step="any" placeholder="0" value="${esc(L.amtFx||"")}"></label></div>`:""}
     <div class="quick"><button type="button" class="chip" data-a="payfill" data-m="due">Paid in full</button><button type="button" class="chip" data-a="payfill" data-m="min">Paid the minimum</button><button type="button" class="chip" data-a="payfill" data-m="none">Not paid yet</button></div>
     <label class="f">Paid on<input data-bl="paidOn" type="date" value="${esc(L.paidOn)}"></label>
     <div class="preview num" id="bl-sum">${billSum(b,due,paid,left)}</div>`}
-function billSum(b,due,paid,left){return `<div class="r"><span>Paid</span><b>${fmtP(paid,b.cur)}</b></div><div class="r"><span>Still to pay</span><b class="${left>0?"neg":"pos"}">${fmtP(left,b.cur)}</b></div>`}
+function billSum(b,due,paid,left){const L=ui.sheet&&ui.sheet.bill||{},df=+L.dueFx||0,pf=+L.amtFx||0,lf=r2(Math.max(0,df-pf)),d=df>0||pf>0;
+  return `<div class="r"><span>Paid</span><b>${fmtP(paid,b.cur)}${d?" + "+fmtP(pf,"$"):""}</b></div><div class="r"><span>Still to pay</span><b class="${left>0||lf>0?"neg":"pos"}">${fmtP(left,b.cur)}${d?" + "+fmtP(lf,"$"):""}</b></div>`}
 function billVals(){const L=ui.sheet.bill||billOf(),due=r2(L.due),min=r2(L.min),paid=r2(L.amt);
   if(min>due&&due>0)return{e:"The minimum due can't be more than the outstanding amount."};
   if(L.amt!==""&&!(paid>=0))return{e:"Enter the amount you paid as a number."};
-  return{due,min,dueDate:isDate(L.dueDate)?L.dueDate:"",paid,paidOn:paid>0&&isDate(L.paidOn)?L.paidOn:""}}
+  const dF=r2(L.dueFx),mF=r2(L.minFx),pF=r2(L.amtFx),fx=dF>0||pF>0?{due:dF||0,min:mF||0,paid:pF||0}:null;
+  return Object.assign({due,min,dueDate:isDate(L.dueDate)?L.dueDate:"",paid,paidOn:(paid>0||pF>0)&&isDate(L.paidOn)?L.paidOn:""},fx?{fx}:{})}
 function billPreview(){const s=$("#bl-sum");if(!s||!ui.sheet||!ui.sheet.bill)return;const L=ui.sheet.bill,due=+L.due||0,paid=+L.amt||0;s.innerHTML=billSum(curBook(),due,paid,r2(Math.max(0,due-paid)))}
 function findBill(text){const lines=String(text||"").replace(/[০-৯]/g,d=>"০১২৩৪৫৬৭৮৯".indexOf(d)).split(/\r?\n/).map(l=>l.replace(/\s+/g," ").trim()).filter(Boolean),
     MR="(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?",MON={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
@@ -1212,18 +1234,20 @@ function findBill(text){const lines=String(text||"").replace(/[০-৯]/g,d=>"�
   const LAB=[["min",MIN,"a"],["dd",DD,"d"],["due",DUE,"a"],["sd",/\b(statement|bill|billing) (date|generation date)\b/i,"d"],["x",/\b(credit limit|available (credit )?limit|available credit|cash (advance )?limit|previous balance|opening balance|reward points?|payments?( and)? credits|purchases?( and debits)?|fees? and charges|interest charges?)\b/i,"a"]];
   const labelsIn=l=>{const f=[];LAB.forEach(([k,re,t])=>{const g=new RegExp(re.source,"gi");for(const m of l.matchAll(g))f.push({k,t,i:m.index,e:m.index+m[0].length})});
     f.sort((p,q)=>p.i-q.i||(q.e-q.i)-(p.e-p.i));const keep=[];f.forEach(x=>{if(!keep.length||x.i>=keep[keep.length-1].e)keep.push(x)});return keep};
-  const r={due:0,min:0,dueDate:"",stmtDate:""},set=(k,v)=>{if(k==="sd"&&!r.stmtDate&&v)r.stmtDate=v;else if(k==="due"&&!r.due&&v>0)r.due=v;else if(k==="min"&&!r.min&&v>0)r.min=v;else if(k==="dd"&&!r.dueDate&&v)r.dueDate=v};
-  lines.forEach((l,i)=>{const labs=labelsIn(l);if(!labs.length)return;
+  const r={due:0,min:0,dueDate:"",stmtDate:"",dueFx:0,minFx:0},set=(k,v,fx)=>{if(fx&&(k==="due"||k==="min"))k+="Fx";if(k==="sd"&&!r.stmtDate&&v)r.stmtDate=v;else if(k==="due"&&!r.due&&v>0)r.due=v;else if(k==="min"&&!r.min&&v>0)r.min=v;else if(k==="dueFx"&&!r.dueFx&&v>0)r.dueFx=v;else if(k==="minFx"&&!r.minFx&&v>0)r.minFx=v;else if(k==="dd"&&!r.dueDate&&v)r.dueDate=v};
+  const USDW=/\b(usd|us\$|us dollars?)\b|\$/i,BDTW=/\b(bdt|tk|taka|local currency)\b|৳/i;let sec=false;
+  lines.forEach((l,i)=>{const labs=labelsIn(l);if(!labs.length){if(!/\d/.test(l)&&l.length<90){const u=USDW.test(l),t=BDTW.test(l);if(u&&!t)sec=true;else if(t&&!u)sec=false}return}
+    labs.forEach((x,n)=>{const w=l.slice(x.i,n+1<labs.length?labs[n+1].i:l.length);x.fx=USDW.test(w)?true:BDTW.test(w)?false:sec});
     const rest=labs.reduceRight((s2,x)=>s2.slice(0,x.i)+s2.slice(x.e),l);
     if(labs.length>=2&&!/\d/.test(rest)){ // a table header: values sit on the next line(s) in the same order
       let vt=[];for(let j=i+1;j<=i+3&&j<lines.length;j++){if(labelsIn(lines[j]).length&&vt.length)break;vt=vt.concat(toks(lines[j]));if(vt.length>=labs.length)break}
-      if(vt.length===labs.length)labs.forEach((x,n)=>{const v=vt[n];if(v.t===x.t)set(x.k,v.v)});
-      else{const ds=vt.filter(t=>t.t==="d"),as=vt.filter(t=>t.t==="a");labs.filter(x=>x.t==="d").forEach((x,n)=>ds[n]&&set(x.k,ds[n].v));labs.filter(x=>x.t==="a").forEach((x,n)=>as[n]&&set(x.k,as[n].v))}
+      if(vt.length===labs.length)labs.forEach((x,n)=>{const v=vt[n];if(v.t===x.t)set(x.k,v.v,x.fx)});
+      else{const ds=vt.filter(t=>t.t==="d"),as=vt.filter(t=>t.t==="a");labs.filter(x=>x.t==="d").forEach((x,n)=>ds[n]&&set(x.k,ds[n].v,x.fx));labs.filter(x=>x.t==="a").forEach((x,n)=>as[n]&&set(x.k,as[n].v,x.fx))}
       return}
     labs.forEach((x,n)=>{if(!["due","min","dd","sd"].includes(x.k))return;let seg=l.slice(x.e,n+1<labs.length?labs[n+1].i:l.length);
       if(!/\d/.test(seg)){const nx=lines[i+1]||"";if(labelsIn(nx).length)return;seg=nx}
-      if(x.t==="d"){const d=dateAt(seg);if(d)set(x.k,d.d)}else set(x.k,amtOf(seg))})});
-  if(r.min>r.due&&r.due)r.min=0;return r}
+      if(x.t==="d"){const d=dateAt(seg);if(d)set(x.k,d.d)}else set(x.k,amtOf(seg),x.fx||USDW.test(seg))})});
+  if(r.min>r.due&&r.due)r.min=0;if(r.minFx>r.dueFx&&r.dueFx)r.minFx=0;return r}
 /* ---------- credit cards: reading statements ---------- */
 const STMT={tok:0};
 function parseStatement(text){const MON={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12},MR="(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?";
@@ -1237,22 +1261,28 @@ function parseStatement(text){const MON={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul
   const AMT=/\s*(\(?-?(?:\d{1,3}(?:,\d{2,3})+|\d+)\.\d{2}\)?)(\s*(?:cr|dr|c|d)\b\.?)?\s*$/i,CUR=/\s*\b(bdt|tk|taka|usd|eur|gbp|inr|aed|sgd|myr|thb)\.?\s*$/i;
   const SKIP=/^(previous|opening|closing|new|outstanding)\s+balance|^total|^sub ?total|minimum (amount|payment)|statement (date|period)|payment due|credit limit|available (credit|limit)|reward point|^balance\b/i;
   const CREDIT=/payment (received|thank)|thank you|^payment\b|\bpayment\s*-|refund|reversal|reversed|cash ?back|credit adj|chargeback|^repayment/i;
-  const raw=[];let credits=0,last=-2,pend=null;
-  const emit=(a,text,i)=>{let rest=text.replace(CUR,""),m=rest.match(AMT);if(!m)return false;
+  const raw=[];let credits=0,last=-2,pend=null,sec="";
+  const USDL=/\b(usd|us\$|us dollars?)\b|\$/i,BDTL=/\b(bdt|tk|taka|local currency)\b|৳/i,NUM=/\d[\d,]*\.\d{2}/;
+  /* the currency printed next to the billed (last) amount wins; otherwise the section's currency */
+  const rowFx=text=>{const t=text.trim();if(/(usd|us\$|\$)\s*\(?-?[\d,]+\.\d{2}\)?\s*(cr|dr|c|d)?\.?\s*$/i.test(t)||/[\d,]+\.\d{2}\)?\s*(cr|dr)?\.?\s*usd\.?\s*$/i.test(t))return"USD";
+    if(/(bdt|tk|taka|৳)\.?\s*\(?-?[\d,]+\.\d{2}\)?\s*(cr|dr|c|d)?\.?\s*$/i.test(t)||/[\d,]+\.\d{2}\)?\s*(cr|dr)?\.?\s*(bdt|tk|taka)\.?\s*$/i.test(t))return"";return sec};
+  const emit=(a,text,i)=>{const fx=rowFx(text);let rest=text.replace(CUR,""),m=rest.match(AMT);if(!m)return false;
     const tok=m[1],cr=/^c/i.test((m[2]||"").trim())||/^\(|^-/.test(tok),amount=parseFloat(tok.replace(/[(),-]/g,""));
     rest=rest.slice(0,rest.length-m[0].length);for(let k=0;k<3;k++){rest=rest.replace(CUR,"");const n=rest.match(AMT);if(!n)break;rest=rest.slice(0,rest.length-n[0].length)}
     const desc=rest.replace(CUR,"").replace(/\b(x{2,}|\*{2,})\d{2,4}\b/gi,"").replace(/\s+/g," ").trim();last=i;
     if(!(amount>0&&amount<1e8)||!a.mo||a.mo>12||!a.d||a.d>31||!desc||SKIP.test(desc))return true;
     if(cr||CREDIT.test(desc)){credits++;return true}
-    raw.push({y:a.y,mo:a.mo,d:a.d,desc:desc.slice(0,120),amount});return true};
+    raw.push(Object.assign({y:a.y,mo:a.mo,d:a.d,desc:desc.slice(0,120),amount},fx?{fx}:{}));return true};
   lines.forEach((l,i)=>{const a=lead(l);
+    let hdr=false;if(!a&&!NUM.test(l)&&l.length<90){const u=USDL.test(l),t=BDTL.test(l);if(u&&!t){sec="USD";hdr=true}else if(t&&!u){sec="";hdr=true}else if(/summary|statement|transaction details|account/i.test(l))hdr=true}
+    if(!a&&hdr){pend=null;last=-2;return}
     if(!a){if(pend&&pend.i===i-1&&!SKIP.test(l)){if(emit(pend.a,pend.text+" "+l,i)){pend=null;return}pend.text+=" "+l;pend.i=i;if(pend.text.length>160)pend=null;return}
       if(raw.length&&last===i-1&&!AMT.test(l)&&l.length<60&&!SKIP.test(l)){const r=raw[raw.length-1];if(r.desc.length<100)r.desc+=" "+l;last=i}return}
     const b2=lead(a.rest);if(b2&&b2.mo)a.rest=b2.rest;pend=null;
     if(!emit(a,a.rest,i))pend={a,text:a.rest,i}});
   const ys=raw.filter(r=>r.y).map(r=>r.y<100?r.y+2000:r.y),cnt={};ys.forEach(y=>cnt[y]=(cnt[y]||0)+1);
   let defY=+Object.keys(cnt).sort((p,q)=>cnt[q]-cnt[p])[0]||0;if(!defY){const t=String(text).match(/\b20\d{2}\b/g)||[],c2={};t.forEach(y=>c2[y]=(c2[y]||0)+1);defY=+Object.keys(c2).sort((p,q)=>c2[q]-c2[p])[0]||+today().slice(0,4)}
-  const t=today(),rows=raw.map(r=>{let y=r.y?(r.y<100?r.y+2000:r.y):defY,date=mkd(y,r.mo,r.d);if(!r.y&&date>addDays(t,1))date=mkd(y-1,r.mo,r.d);return{date,desc:r.desc,amount:Math.round(r.amount*100)/100}})
+  const t=today(),rows=raw.map(r=>{let y=r.y?(r.y<100?r.y+2000:r.y):defY,date=mkd(y,r.mo,r.d);if(!r.y&&date>addDays(t,1))date=mkd(y-1,r.mo,r.d);return Object.assign({date,desc:r.desc,amount:Math.round(r.amount*100)/100},r.fx?{fx:r.fx}:{})})
     .filter(r=>r.date<=addDays(t,1));
   const ds=rows.map(r=>r.date).sort();return{rows,credits,from:ds[0]||"",to:ds[ds.length-1]||"",bill:findBill(text)}}
 const csvLines=t=>String(t).split(/\r?\n/).map(l=>{const out=[];let cur="",q=false;for(const ch of l){if(ch==='"')q=!q;else if((ch===","||ch===";"||ch==="\t")&&!q){out.push(cur);cur=""}else cur+=ch}out.push(cur);
@@ -1276,16 +1306,16 @@ async function handleStatement(file,pw){const b=curBook();if(!b||b.type!=="card"
     else if(img){if(IN_ARTIFACT)throw new Error("artifact-ocr");const cv=await imgCanvas(file);OCR.cb=m=>{if(m.status==="recognizing text")set(.15+.8*(+m.progress||0),"Reading the photo… "+Math.round((+m.progress||0)*100)+"%");else set(.05,"Loading the reader (first time needs internet)…")};
       if(!window.Tesseract)await loadScript(TESS);const w=await ocrWorker();text=(await w.recognize(cv)).data.text||"";OCR.cb=null}
     else text=csvLines(await file.text());
-    if(!alive())return;const r=parseStatement(text),have=new Set(txOf(b).flatMap(x=>[x.desc,x.bank].filter(Boolean).map(d=>x.date+"|"+(+x.amount).toFixed(2)+"|"+d.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,12))));
-    txOf(b).filter(x=>x.bank&&x.stmt).forEach(x=>have.add("any|"+(+x.amount).toFixed(2)+"|"+x.bank.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,12)));
+    if(!alive())return;const r=parseStatement(text),have=new Set(txOf(b).flatMap(x=>[x.desc,x.bank].filter(Boolean).map(d=>x.date+"|"+(x.fx?"usd":"")+(+x.amount).toFixed(2)+"|"+d.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,12))));
+    txOf(b).filter(x=>x.bank&&x.stmt).forEach(x=>have.add("any|"+(x.fx?"usd":"")+(+x.amount).toFixed(2)+"|"+x.bank.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,12)));
     const pool=txOf(b).filter(x=>x.kind==="expense"&&!x.stmt),used=new Set(),taken=new Set(txOf(b).filter(x=>x.mine).map(x=>x.mine)),own=ownCardTx(b).filter(x=>!taken.has(x.id)),usedOwn=new Set();
-    const rows=r.rows.map(x=>{const ct=classify(x.desc),kk=x.amount.toFixed(2)+"|"+x.desc.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,12),dup=have.has(x.date+"|"+kk)||have.has("any|"+kk);let m=null;
-      let o=null;if(!dup){m=findMatch(pool,used,x.amount,x.date);if(m)used.add(m.id);else{o=findMatch(own,usedOwn,x.amount,x.date);if(o)usedOwn.add(o.id)}}
+    const rows=r.rows.map(x=>{const ct=classify(x.desc),kk=(x.fx?"usd":"")+x.amount.toFixed(2)+"|"+x.desc.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,12),dup=have.has(x.date+"|"+kk)||have.has("any|"+kk);let m=null;
+      let o=null;if(!dup){m=findMatch(pool,used,x.amount,x.date,x.fx);if(m)used.add(m.id);else{o=findMatch(own,usedOwn,x.amount,x.date,x.fx,fxRate(b));if(o)usedOwn.add(o.id)}}
       return Object.assign(x,{ctype:ct,cat:guessCat(x.desc,ct),dup,on:!dup&&!m,unknown:!dup&&!m&&!o},m?{match:m.id,mdesc:m.desc,mdate:m.date,msrc:"added by hand"}:{},o?{mine:o.id,mdesc:o.desc,mdate:o.date,msrc:(S.books.find(q=>q.id===o.bookId)||{}).name||"your expenses"}:{})});
     const rk=x=>x.dup?3:x.unknown?(x.ctype==="fee"?0:1):2;rows.sort((p2,q)=>rk(p2)-rk(q)||(p2.date||"").localeCompare(q.date||""));
     const toDate=r.to||"";ui.sheet.unbilledMine=pool.filter(x=>!used.has(x.id)&&(!toDate||x.date<=toDate)).length+own.filter(x=>!usedOwn.has(x.id)&&(!toDate||x.date<=toDate)&&(!r.from||x.date>=addDays(r.from,-5))).length;
-    const fb=r.bill;ui.sheet.bill=Object.assign(billOf({due:fb.due,min:fb.min,dueDate:fb.dueDate},true),{auto:{due:!!fb.due,min:!!fb.min,dueDate:!!fb.dueDate}});
-    const okB=fb.due>0||!!fb.dueDate;ui.sheet.bill.edit=!okB;
+    const fb=r.bill;ui.sheet.bill=Object.assign(billOf({due:fb.due,min:fb.min,dueDate:fb.dueDate,fx:fb.dueFx||fb.minFx?{due:fb.dueFx,min:fb.minFx}:null},true),{auto:{due:!!fb.due,min:!!fb.min,dueDate:!!fb.dueDate,dueFx:!!fb.dueFx,minFx:!!fb.minFx}});
+    const okB=fb.due>0||!!fb.dueDate||fb.dueFx>0;ui.sheet.bill.edit=!okB;
     ui.sheet.st={stmtDate:fb.stmtDate||"",state:rows.length||okB?"review":"error",file,rows,credits:r.credits,from:r.from,to:r.to,msg:rows.length?"":"No transactions were found in this file. Statements with a date at the start of each line and the amount at the end work best. A text PDF from the bank works better than a photo."};
     drawSheet()}
   catch(e){OCR.cb=null;if(!alive())return;const m=String(e&&e.message||e);
@@ -1299,25 +1329,27 @@ function stmtSheet(){const st=ui.sheet.st||{},b=curBook(),c=cardOf(b);let h=head
   const on=st.rows.filter(r=>r.on),dups=st.rows.filter(r=>r.dup).length,sum=on.reduce((a,r)=>a+r.amount,0),cnt=on.filter(r=>verdict(r,c,b.cur).ok).length;
   h+=`<h3 class="subhead">This month's bill</h3>${billFields(b,true)}<h3 class="subhead">Transactions</h3>`;
   if(!st.rows.length)return h+`<p class="muted" style="margin:0">No transactions were found in this file. You can still save the bill, and add transactions by hand later.</p><div class="err" id="err" role="alert"></div><div class="actions"><button class="btn primary" data-a="stmtadd">Save bill</button></div>`;
-  h+=`<div class="preview num"><div class="r"><span>Dates</span><b>${longDate(st.from)} to ${longDate(st.to)}</b></div><div class="r"><span>Selected</span><b>${on.length} for ${fmt(sum,b.cur)}</b></div>${c.nocount?"":`<div class="r"><span>Count toward the waiver</span><b>${cnt}</b></div>`}
+  h+=`<div class="preview num"><div class="r"><span>Dates</span><b>${longDate(st.from)} to ${longDate(st.to)}</b></div><div class="r"><span>Selected</span><b>${on.length} for ${fmt(on.filter(r=>!r.fx).reduce((a,r)=>a+r.amount,0),b.cur)}${on.some(r=>r.fx)?" + "+fmtP(on.filter(r=>r.fx).reduce((a,r)=>a+r.amount,0),"$"):""}</b></div>${c.nocount?"":`<div class="r"><span>Count toward the waiver</span><b>${cnt}</b></div>`}
     ${st.credits?`<div class="r muted"><span>Payments and refunds skipped</span><b>${st.credits}</b></div>`:""}${dups?`<div class="r muted"><span>Already in this card, not selected</span><b>${dups}</b></div>`:""}${(()=>{const mt=st.rows.filter(r=>(r.match&&!r.on)||(r.mine&&r.on)).length,un=st.rows.filter(r=>r.unknown&&r.on).length;return (un?`<div class="r"><span>Charges you didn't enter</span><b class="neg">${un}</b></div>`:"")+(mt?`<div class="r"><span>Matched to your expenses</span><b class="pos">${mt}</b></div>`:"")})()}${ui.sheet.unbilledMine?`<div class="r muted"><span>Your card expenses not on this statement</span><b>${ui.sheet.unbilledMine}</b></div>`:""}</div>
+  ${st.rows.some(r=>r.fx)?`<p class="muted" style="margin:0;font-size:.92rem">${st.rows.filter(r=>r.fx).length} ${st.rows.filter(r=>r.fx).length===1?"line is":"lines are"} in US dollars and ${st.rows.filter(r=>r.fx).length===1?"is":"are"} kept in dollars.${isDual(b)?"":" This card will be set to taka and USD."}</p>`:""}
   ${st.rows.some(r=>r.unknown)?`<p class="muted" style="margin:0;font-size:.92rem">Lines marked <span class="neg">Not in your expenses</span> are listed on the card under <b>Check these</b> after you save, so you can confirm or dispute them.</p>`:""}
   <p class="muted" style="margin:0;font-size:.92rem">Untick anything that isn't a purchase. You can change a transaction's type later.</p>
   <button type="button" class="link" data-a="rvall" style="align-self:flex-start">${st.rows.every(r=>r.on||r.dup||r.match)?"Untick all":"Tick all"}</button>
-  <div class="rvlist">${st.rows.map((r,i)=>{const v=verdict(r,c,b.cur);return `<button type="button" class="rv" data-a="rvtoggle" data-i="${i}" aria-pressed="${r.on}"><span class="box">${ico("M5 12l5 5 9-10")}</span><span class="d">${esc(r.desc)}</span><span class="a num">${fmt(r.amount,b.cur)}</span>
+  <div class="rvlist">${st.rows.map((r,i)=>{const v=verdict(r,c,b.cur,b);return `<button type="button" class="rv" data-a="rvtoggle" data-i="${i}" aria-pressed="${r.on}"><span class="box">${ico("M5 12l5 5 9-10")}</span><span class="d">${esc(r.desc)}</span><span class="a num">${money(r,b,1)}</span>
     <span class="s">${new Date(r.date+"T00:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short"})}, ${CT[r.ctype][0]}${c.nocount?"":`. <span class="${v.ok?"yes":"no"}">${v.ok?"Counts":v.why}</span>`}${r.dup?". Already added":""}${r.match?(r.on?". Added as a new purchase":`. <span class="yes">Matches your “${esc(r.mdesc)}”</span> (${esc(r.msrc)}, ${shortDate(r.mdate)})`):r.mine?`. <span class="yes">Matches your “${esc(r.mdesc)}”</span> (${esc(r.msrc)}, ${shortDate(r.mdate)})`:r.unknown?`. <span class="no">Not in your expenses</span>${r.ctype==="fee"?`, <span class="no">bank charge</span>`:""}`:""}</span></button>`}).join("")}</div>
   <div class="err" id="err" role="alert"></div><div class="actions"><button class="btn primary" data-a="stmtadd">${on.length?`Save bill and ${on.length} ${on.length===1?"transaction":"transactions"}`:"Save bill only"}</button></div>`;
   return h}
 /* a purchase you already added (by hand, or from a daily ledger) and the bank's line for it rarely share a description,
    so match on amount (within 1) and date (within 5 days), closest first, each entry used once */
-function findMatch(pool,used,amount,date){let best=null,bs=1e9;pool.forEach(x=>{if(used.has(x.id))return;const da=Math.abs(+x.amount-amount),dd=Math.abs(daysBetween(x.date,date));
-  if(da<=1&&dd<=5){const sc=da*10+dd;if(sc<bs){bs=sc;best=x}}});return best}
+function findMatch(pool,used,amount,date,fx,rate){let best=null,bs=1e9;pool.forEach(x=>{if(used.has(x.id))return;const dd=Math.abs(daysBetween(x.date,date));if(dd>5)return;
+  let da,ok;if(!!x.fx===!!fx){da=Math.abs(+x.amount-amount);ok=da<=1}else if(fx&&rate){const want=amount*rate;da=Math.abs(+x.amount-want)/want*100;ok=da<=4}else return;
+  if(ok){const sc=da*10+dd;if(sc<bs){bs=sc;best=x}}});return best}
 const daysBetween=(a,b)=>Math.round((new Date(a+"T00:00:00")-new Date(b+"T00:00:00"))/864e5);
 /* the card holds the bank's lines; your own card purchases stay in their ledgers and are matched to those lines */
 const ownCardTx=card=>S.tx.filter(t=>t.kind==="expense"&&t.via===card.id&&t.bookId!==card.id);
 function reconcile(card){let ch=false;const own=ownCardTx(card),ids=new Set(own.map(t=>t.id)),bank=txOf(card).filter(t=>t.kind==="expense"&&t.stmt),used=new Set();
   bank.forEach(t=>{if(t.mine&&!ids.has(t.mine)){delete t.mine;if(!t.chk)t.chk="new";ch=true}if(t.mine){if(used.has(t.mine)){delete t.mine;ch=true}else used.add(t.mine)}});
-  bank.filter(t=>!t.mine).sort((x,y)=>(x.date||"").localeCompare(y.date||"")).forEach(t=>{const m=findMatch(own,used,+t.amount,t.date);if(m){t.mine=m.id;used.add(m.id);if(t.chk==="new")delete t.chk;ch=true}});
+  bank.filter(t=>!t.mine).sort((x,y)=>(x.date||"").localeCompare(y.date||"")).forEach(t=>{const m=findMatch(own,used,+t.amount,t.date,t.fx,fxRate(card));if(m){t.mine=m.id;used.add(m.id);if(t.chk==="new")delete t.chk;ch=true}});
   return ch}
 function reconcileAll(){let ch=false;S.books.filter(b=>b.type==="card").forEach(b=>{if(reconcile(b))ch=true});return ch}
 /* earlier versions copied card expenses onto the card; turn those copies back into plain bank lines */
@@ -1332,17 +1364,18 @@ function cardCheck(b){const bank=txOf(b).filter(t=>t.stmt&&(t.chk==="new"||t.chk
 function checkBlock(b){const k=cardCheck(b);if(!k.bank.length&&!k.missing.length)return"";const nw=k.bank.filter(t=>t.chk==="new").length;
   return `<section class="check"><h2>Check these</h2>
     ${k.bank.length?`<p class="muted">The bank charged ${k.bank.length===1?"this":"these"}, but ${k.bank.length===1?"it isn't":"they aren't"} in your expenses.${nw>1?` <button class="link" data-a="chkall">Mark all as known</button>`:""}</p>
-    <div class="card ruled">${k.bank.map(t=>`<div class="chk-row${t.chk==="dispute"?" disputed":""}"><div class="chk-top"><span class="d">${esc(t.desc)}</span><b class="num">${fmtP(t.amount,b.cur)}</b></div>
+    <div class="card ruled">${k.bank.map(t=>`<div class="chk-row${t.chk==="dispute"?" disputed":""}"><div class="chk-top"><span class="d">${esc(t.desc)}</span><b class="num">${money(t,b,1)}</b></div>
       <span class="s">${shortDate(t.date)}, ${CT[t.ctype||"purchase"][0]}${t.ctype==="fee"?`, <span class="neg">bank charge</span>`:""}${t.chk==="dispute"?`, <span class="neg">disputed</span>`:""}</span>
       <div class="chk-acts"><button class="btn" data-a="chk" data-id="${esc(t.id)}" data-v="ok">I know this one</button><button class="btn${t.chk==="dispute"?" danger":""}" data-a="chk" data-id="${esc(t.id)}" data-v="${t.chk==="dispute"?"new":"dispute"}">${t.chk==="dispute"?"Undo dispute":"Dispute"}</button></div></div>`).join("")}</div>`:""}
     ${k.missing.length?`<p class="muted">You paid ${k.missing.length===1?"this":"these"} with the card, but ${k.missing.length===1?"it isn't":"they aren't"} on any bill yet. Check the amount, or look for ${k.missing.length===1?"it":"them"} on the next one.</p>
     <div class="card ruled">${k.missing.map(t=>{const sb=S.books.find(x=>x.id===t.bookId);return `<div class="chk-row"><div class="chk-top"><span class="d">${esc(t.desc)}</span><b class="num">${fmtP(t.amount,b.cur)}</b></div><span class="s">${shortDate(t.date)}, from ${esc(sb?sb.name:"a ledger")}</span></div>`}).join("")}</div>`:""}
   </section>`}
 function addStatement(){const b=curBook(),st=ui.sheet.st,on=st.rows.filter(r=>r.on),bv=billVals();if(bv.e)return err(bv.e);delete bv.e;
+  if((st.rows.some(r=>r.fx)||bv.fx)&&b.card&&!b.card.fx)b.card.fx="USD";
   if(!on.length&&!bv.due&&!bv.dueDate)return err("Nothing to save. Tick some transactions or enter the bill details.");const id="s"+uid(),now=Date.now();
-  on.forEach((r,i)=>{const t={id:uid(),bookId:b.id,kind:"expense",amount:r.amount,desc:r.desc,cat:r.cat,ctype:r.ctype,date:r.date,note:"",stmt:id,fromStmt:true,created:now+i};if(r.mine)t.mine=r.mine;else if(r.unknown)t.chk="new";S.tx.push(t)});
+  on.forEach((r,i)=>{const t={id:uid(),bookId:b.id,kind:"expense",amount:r.amount,desc:r.desc,cat:r.cat,ctype:r.ctype,date:r.date,note:"",stmt:id,fromStmt:true,created:now+i};if(r.fx)t.fx=r.fx;if(r.mine)t.mine=r.mine;else if(r.unknown)t.chk="new";S.tx.push(t)});
   let merged=0,mamt=0;st.rows.filter(r=>r.match&&!r.on).forEach(r=>{const t=S.tx.find(x=>x.id===r.match);if(!t||t.stmt)return;t.stmt=id;t.ctype=r.ctype;t.bank=r.desc;merged++;mamt+=+t.amount||0});
-  b.statements=(b.statements||[]).concat([{id,file:(st.file&&st.file.name||"").slice(0,120),from:st.from,to:st.to,count:on.length+merged,total:Math.round((on.reduce((a,r)=>a+r.amount,0)+mamt)*100)/100,added:now,due:bv.due,min:bv.min,dueDate:bv.dueDate,paid:bv.paid,paidOn:bv.paidOn,stmtDate:st.stmtDate||st.to||""}]);
+  b.statements=(b.statements||[]).concat([{id,file:(st.file&&st.file.name||"").slice(0,120),from:st.from,to:st.to,count:on.length+merged,total:Math.round((on.reduce((a,r)=>a+r.amount,0)+mamt)*100)/100,added:now,due:bv.due,min:bv.min,dueDate:bv.dueDate,paid:bv.paid,paidOn:bv.paidOn,stmtDate:st.stmtDate||st.to||"",...(bv.fx?{fx:bv.fx}:{})}]);
   reconcileAll();save();closeSheet();ui.tab="overview";render();toast(on.length||merged?`Saved the bill${on.length?` and ${on.length} new ${on.length===1?"transaction":"transactions"}`:""}${merged?`, matched ${merged}`:""}`:"Bill saved",true)}
 
 /* ---------- credit cards: chart ---------- */
