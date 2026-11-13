@@ -242,6 +242,8 @@ pre.ocr{white-space:pre-wrap;word-break:break-word;font:12px/1.45 ui-monospace,M
 .loan-acts{display:flex;gap:10px}.loan-acts .btn{flex:1}
 .cat.av{font-family:var(--f-d);font-weight:700;font-size:1.05rem;background:var(--sunk);color:var(--fg);border-radius:50%}
 .cat.ld{background:var(--sunk)}.cat.ld-lent,.cat.ld-got{color:var(--pos)}.cat.ld-borrowed,.cat.ld-paid{color:var(--neg)}
+.payall{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:14px 16px;margin-bottom:12px}
+.payall>div{display:flex;flex-direction:column;min-width:0}.payall b{font-family:var(--f-d);font-size:1.25rem}.payall .btn{flex:0 0 auto}
 .fname{margin:-6px 0 0;font-size:.9rem;overflow-wrap:anywhere}
 .check h2{margin-bottom:6px}.check>p{margin:0 0 8px;font-size:.95rem}.check .card+p{margin-top:14px}
 .chk-row{display:flex;flex-direction:column;gap:4px;padding:14px 16px;border-top:1px solid var(--rule)}.chk-row:first-child{border-top:0}
@@ -402,6 +404,7 @@ function home(){
   ${syncBar()}
   <section><div class="sec-head"><h2>Your khatas</h2><button class="link" data-a="import">Import</button></div>
     ${S.books.length?`<div class="tabs htabs" role="tablist">${HT.map(([t,n])=>{const k=S.books.filter(b=>b.type===t).length;return `<button role="tab" aria-pressed="${ui.htab===t}" aria-selected="${ui.htab===t}" data-a="htab" data-t="${t}" data-sort="tab">${n}${k?` <span class="cnt">${k}</span>`:""}</button>`}).join("")}</div>`:""}
+    ${ui.htab==="card"?payAllBar():""}
     ${S.books.length&&!dragHintSeen()?`<p class="muted hint">Hold a khata or a tab, then drag it to move it.</p>`:""}
     ${cards?`<div class="books">${cards}</div>`:S.books.length?(()=>{const h={loan:[45,"Start a loan khata","Track money you lend or borrow, and who still owes what"],personal:[205,"Start a daily ledger","Log your spending against a monthly budget"],trip:[160,"Start a trip","Split costs with friends and see who owes whom"],card:[330,"Add a credit card","Bills, due dates, limit and the yearly fee waiver"]}[ui.htab];
       return `<div class="starts"><button class="start" style="--h:${h[0]}" data-a="newbook" data-t="${ui.htab}"><b>${h[1]}</b><span>${h[2]}</span></button></div>`})():`<p class="muted" style="margin:0 0 4px">A khata keeps one set of expenses together. Start one:</p><div class="starts">
@@ -643,7 +646,7 @@ function importSheet(){return head("Import")+`<p class="muted" style="margin:0">
   <textarea id="imp" placeholder="KH1Z:…" aria-label="Khoroch code"></textarea><div class="err" id="err" role="alert"></div>
   <div class="actions"><button class="btn" data-a="pickfile">Choose file</button><button class="btn primary" data-a="doimport">Import</button></div>`}
 function openSheet(type,extra){ui.sheet=Object.assign({type},extra||{});drawSheet();$("#scrim").hidden=false}
-function drawSheet(){const s=$("#sheet"),top=s.scrollTop;s.innerHTML={tx:txSheet,book:bookSheet,share:shareSheet,import:importSheet,cardadd:cardAddSheet,stmt:stmtSheet,stmtinfo:stmtInfoSheet,acct:acctSheet}[ui.sheet.type]();s.scrollTop=top;preview()}
+function drawSheet(){const s=$("#sheet"),top=s.scrollTop;s.innerHTML={tx:txSheet,book:bookSheet,share:shareSheet,import:importSheet,cardadd:cardAddSheet,stmt:stmtSheet,stmtinfo:stmtInfoSheet,acct:acctSheet,payall:payAllSheet}[ui.sheet.type]();s.scrollTop=top;preview()}
 function closeSheet(){STMT.tok++;STMT.queue=[];STMT.total=0;STMT.pw="";if(F&&F.newReceipt&&!F.newReceipt.kept)URL.revokeObjectURL(F.newReceipt.url);OCR.cb=null;ui.sheet=null;F=null;B=null;$("#scrim").hidden=true;$("#sheet").innerHTML=""}
 function toast(msg,coin){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,1900);
   if(coin){try{navigator.vibrate&&navigator.vibrate(12)}catch(e){}const c=document.createElement("div");c.className="coin";document.body.appendChild(c);setTimeout(()=>c.remove(),1000)}}
@@ -812,6 +815,9 @@ const A={
   "deltx-yes"(){if(F.receipt)IDB.del(F.receipt).catch(()=>{});S.tx.forEach(t=>{if(t.link===F.id&&t.stmt){delete t.link;delete t.linkBook;if(t.bank)t.desc=t.bank}});S.tx=S.tx.filter(t=>t.id!==F.id&&t.link!==F.id);reconcileAll();save();closeSheet();render();toast("Deleted")},
   via(d){F.via=d.v;drawSheet()},
   vpick(d){F.lperson=d.p;drawSheet()},
+  payall(){openSheet("payall",{})},
+  payone(d){openSheet("payall",{one:d.id})},
+  "payall-yes"(){const d=dueCards(),one=ui.sheet.one,list=one?d.filter(o=>o.b.id===one):d;list.forEach(o=>markPaid(o.x));save();closeSheet();render();toast(list.length===1?"Bill marked as paid":`${list.length} bills marked as paid`,true)},
   chk(d){const t=S.tx.find(x=>x.id===d.id);if(!t)return;t.chk=d.v;save();render();toast(d.v==="ok"?"Marked as known":d.v==="dispute"?"Marked as disputed. Contact your bank about it":"Dispute removed")},
   chkall(){const b=curBook();txOf(b).forEach(t=>{if(t.chk==="new")t.chk="ok"});save();render();toast("All marked as known")},
   newbook(d){B={id:null,type:d&&d.t||"trip",name:"",cur:(S.books[S.books.length-1]||{}).cur||"৳",start:"",budget:"",members:[{id:uid(),name:"",heads:1},{id:uid(),name:"",heads:1}],
@@ -1174,6 +1180,16 @@ function cardOwed(b){fmtCur=b.cur;const st=(b.statements||[]),bills=st.filter(ha
   const billed=new Set(txOf(b).filter(t=>t.mine).map(t=>t.mine)),newer=txOf(b).filter(t=>t.kind!=="settle"&&!t.stmt).concat(ownCardTx(b).filter(t=>!billed.has(t.id))).filter(t=>!last||(cut?t.date>cut:(t.created||0)>(last.added||0))),unbilledFx=r2(newer.filter(t=>t.fx).reduce((a,t)=>a+(+t.amount||0),0)),unbilled=r2(newer.filter(t=>!t.fx).reduce((a,t)=>a+(+t.amount||0),0));
   const bs=bill&&billStatus(bill),billLeft=bs?r2(bs.left>=.005?bs.left:0):0,billLeftFx=bs?bs.leftFx:0,total=r2(billLeft+unbilled),totalFx=r2(billLeftFx+unbilledFx),limit=(b.card&&b.card.limit)||0;
   return{bill,billLeft,billLeftFx,unbilled,unbilledFx,count:newer.length,total,totalFx,limit,avail:limit?r2(limit-total-totalFx*fxRate(b)):null}}
+/* bills with something still to pay, newest bill per card */
+function dueCards(){return sortBooks(S.books.filter(b=>b.type==="card")).map(b=>{const x=nextBill(b),bs=x&&billStatus(x);return bs&&(bs.left>=.005||bs.leftFx>=.005)?{b,x,left:bs.left>=.005?bs.left:0,leftFx:bs.leftFx||0}:null}).filter(Boolean)}
+function markPaid(x){x.paid=x.due||0;if(x.fx)x.fx.paid=x.fx.due||0;x.paidOn=today()}
+function payAllBar(){const d=dueCards();if(!d.length)return"";const cur=d[0].b.cur,t=r2(d.reduce((a,o)=>a+o.left,0)),tf=r2(d.reduce((a,o)=>a+o.leftFx,0));
+  return `<div class="payall"><div><span class="muted">Due on ${d.length} ${d.length===1?"card":"cards"}</span><b class="num">${fmtP(t,cur)}${tf?` + ${fmtP(tf,"$")}`:""}</b></div><button class="btn primary" data-a="payall">${d.length===1?"Mark as paid":"Mark all as paid"}</button></div>`}
+function payAllSheet(){const d=dueCards(),one=ui.sheet.one;const list=one?d.filter(o=>o.b.id===one):d;
+  if(!list.length)return head("Mark as paid")+`<p style="margin:0">Nothing is due right now.</p>`;
+  return head(list.length===1?"Mark this bill as paid?":"Mark all bills as paid?")+`<p class="muted" style="margin:0">Each bill below is marked as paid in full today. You can still change the amount or date on any bill afterwards.</p>
+    <div class="preview num">${list.map(o=>`<div class="r"><span>${esc(o.b.name)}${o.x.dueDate?`<small class="muted" style="display:block">due ${longDate(o.x.dueDate)}</small>`:""}</span><b>${[o.left?fmtP(o.left,o.b.cur):"",o.leftFx?fmtP(o.leftFx,"$"):""].filter(Boolean).join(" + ")}</b></div>`).join("")}</div>
+    <div class="actions"><button class="btn" data-a="close">Cancel</button><button class="btn primary" data-a="payall-yes">${list.length===1?"Mark as paid":`Mark ${list.length} bills as paid`}</button></div>`}
 function billCard(b){const o=cardOwed(b),x=o.bill,c=b.cur;
   if(!x&&!o.unbilled&&!o.limit)return `<button class="billcard empty-bill" data-a="addbill">${ico(I.plus)}<span><b>Add this month's bill</b><span>Amount due, payment due date and what you've paid</span></span></button>`;
   const bs=x&&billStatus(x),late=bs&&bs.left>0&&x.dueDate&&x.dueDate<today(),cls=late||(bs&&bs.cls==="bad"&&bs.left>0)?"bad":o.total>0?"wait":"ok";
@@ -1189,7 +1205,7 @@ function billCard(b){const o=cardOwed(b),x=o.bill,c=b.cur;
     ${x&&bs.left>0?`<div class="sub">${bs.txt}</div>`:""}
     ${o.limit||x?`<div class="bar${o.limit?" lim":""}"><i style="width:${pct.toFixed(1)}%"></i></div>`:""}
     <div class="preview num">${rows.join("")}</div>
-    <div class="actions" style="margin:0">${x?`<button class="btn ${bs.left>0?"primary":""}" data-a="stmt" data-id="${esc(x.id)}">${bs.left>0?"Record payment":"View bill"}</button>`:""}<button class="btn" data-a="addbill">${x?"New bill":"Add bill"}</button></div></section>`}
+    <div class="actions" style="margin:0">${x&&bs.left>0?`<button class="btn primary" data-a="payone" data-id="${esc(b.id)}">Mark as paid</button>`:""}${x?`<button class="btn" data-a="stmt" data-id="${esc(x.id)}">${bs.left>0?"Record payment":"View bill"}</button>`:""}<button class="btn" data-a="addbill">${x?"New bill":"Add bill"}</button></div></section>`}
 function billOf(x,edit){x=x||{};const f=x.fx||{},has=x.due>0||!!x.dueDate||f.due>0;
   return{due:x.due?String(x.due):"",min:x.min?String(x.min):"",dueDate:x.dueDate||"",amt:x.paid?String(x.paid):"",paidOn:x.paidOn||today(),edit:edit||!has,
     dueFx:f.due?String(f.due):"",minFx:f.min?String(f.min):"",amtFx:f.paid?String(f.paid):""}}
