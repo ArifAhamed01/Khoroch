@@ -586,12 +586,13 @@ function viaPref(bid,v){try{if(v)localStorage.setItem("khoroch.via."+bid,v);else
 /* keep the card's copy of a charged expense in step with the original */
 function linkTx(t){const mine=S.tx.filter(x=>x.link===t.id),exp=t.kind==="expense";
   const card=exp&&t.via&&S.books.find(x=>x.id===t.via&&x.type==="card"),loan=exp&&(t.via==="lend"||t.via==="borrow")&&S.books.find(x=>x.id===t.loanBook&&x.type==="loan");
-  const tgt=card||loan;S.tx=S.tx.filter(x=>x.link!==t.id||(tgt&&x.bookId===tgt.id));if(!tgt)return;
-  const old=mine.find(x=>x.bookId===tgt.id);let m;
-  if(card){const ct=old&&old.ctype||classify(t.desc);m=Object.assign(old||{id:"lk"+t.id,created:Date.now()},{bookId:card.id,kind:"expense",amount:t.amount,desc:t.desc,cat:t.cat,date:t.date,note:"",ctype:CT[ct]?ct:"purchase",link:t.id,linkBook:t.bookId})}
+  const tgt=card||loan;mine.forEach(x=>{if(x.stmt&&!(tgt&&x.bookId===tgt.id)){delete x.link;delete x.linkBook;if(x.bank)x.desc=x.bank}});S.tx=S.tx.filter(x=>x.link!==t.id||(tgt&&x.bookId===tgt.id));if(!tgt)return;
+  let old=mine.find(x=>x.bookId===tgt.id&&x.link===t.id);let m;
+  if(!old&&card){const hit=findMatch(S.tx.filter(x=>x.bookId===card.id&&x.kind==="expense"&&x.stmt&&!x.link),new Set(),+t.amount,t.date);if(hit){hit.bank=hit.bank||hit.desc;old=hit}}
+  if(card){const ct=old&&old.ctype||classify(t.desc);m=Object.assign(old||{id:"lk"+t.id,created:Date.now()},{bookId:card.id,kind:"expense",amount:old&&old.stmt?old.amount:t.amount,desc:t.desc,cat:t.cat,date:t.date,note:"",ctype:CT[ct]?ct:"purchase",link:t.id,linkBook:t.bookId})}
   else{const keepPlan=old&&old.plan&&r2(old.amount)===r2(t.amount);m=Object.assign(old||{id:"lk"+t.id,created:Date.now()},{bookId:loan.id,kind:"loan",dir:t.via==="lend"?"lent":"borrowed",person:t.lperson,amount:t.amount,date:t.date,note:t.desc,link:t.id,linkBook:t.bookId});
     if(!keepPlan)delete m.plan;delete m.ctype;delete m.desc;delete m.cat}
-  if(!old)S.tx.push(m)}
+  if(!S.tx.includes(m))S.tx.push(m)}
 function fShares(){const b=curBook();if(F.mode==="custom"){const o={};b.members.forEach(m=>o[m.id]=parseFloat(F.custom[m.id])||0);return o}
   return sharesOf({amount:parseFloat(F.amount)||0,split:{mode:F.mode,among:F.among}},b)}
 function preview(){const p=$("#preview");if(!p||!F)return;const b=curBook(),amt=parseFloat(F.amount)||0,sh=fShares();
@@ -664,7 +665,7 @@ function clean(d){if(!d||!Array.isArray(d.books))throw new Error("shape");
       desc:String(t.desc||"").slice(0,160),cat:CATS[t.cat]?t.cat:"other",date:isDate(t.date)?t.date:today(),note:String(t.note||"").slice(0,200),created:+t.created||Date.now()};if(typeof t.receipt==="string"&&t.receipt)o.receipt=sid(t.receipt);
     if(CT[t.ctype])o.ctype=t.ctype;if(t.count===true||t.count===false)o.count=t.count;if(typeof t.stmt==="string"&&t.stmt)o.stmt=sid(t.stmt);
     if(typeof t.via==="string"&&t.via)o.via=t.via==="cash"||t.via==="debit"?t.via:sid(t.via);if(typeof t.link==="string"&&t.link){o.link=sid(t.link);o.linkBook=sid(t.linkBook||"")}
-    if(typeof t.lperson==="string"&&t.lperson.trim())o.lperson=t.lperson.trim().slice(0,60);if(typeof t.loanBook==="string"&&t.loanBook)o.loanBook=sid(t.loanBook);
+    if(typeof t.bank==="string"&&t.bank)o.bank=t.bank.slice(0,140);if(t.fromStmt===true)o.fromStmt=true;if(typeof t.lperson==="string"&&t.lperson.trim())o.lperson=t.lperson.trim().slice(0,60);if(typeof t.loanBook==="string"&&t.loanBook)o.loanBook=sid(t.loanBook);
     if(o.kind==="settle"){o.from=sid(t.from||"");o.to=sid(t.to||"")}
     else if(o.kind==="loan"){o.dir=LD[t.dir]?t.dir:"lent";o.person=String(t.person||"").trim().slice(0,60)||"Someone";if(isDate(t.due))o.due=t.due;
       if(Array.isArray(t.plan)){const pl=t.plan.filter(x=>x&&isDate(x.date)&&+x.amount>0).slice(0,120).map(x=>({date:x.date,amount:Math.round(+x.amount*100)/100}));if(pl.length)o.plan=pl}}
@@ -798,7 +799,7 @@ const A={
     else if(F.receipt&&(F.removeReceipt||F.kind!=="expense"))IDB.del(F.receipt).catch(()=>{});
     else if(F.receipt)t.receipt=F.receipt;
     const i=S.tx.findIndex(x=>x.id===t.id);if(i>=0)S.tx[i]=t;else S.tx.push(t);if(b.type!=="card")linkTx(t);save();const was=!!F.id;closeSheet();render();toast(was?"Updated":"Saved",!was)},
-  "deltx-yes"(){if(F.receipt)IDB.del(F.receipt).catch(()=>{});S.tx=S.tx.filter(t=>t.id!==F.id&&t.link!==F.id);save();closeSheet();render();toast("Deleted")},
+  "deltx-yes"(){if(F.receipt)IDB.del(F.receipt).catch(()=>{});S.tx.forEach(t=>{if(t.link===F.id&&t.stmt){delete t.link;delete t.linkBook;if(t.bank)t.desc=t.bank}});S.tx=S.tx.filter(t=>t.id!==F.id&&t.link!==F.id);save();closeSheet();render();toast("Deleted")},
   via(d){F.via=d.v;drawSheet()},
   vpick(d){F.lperson=d.p;drawSheet()},
   newbook(d){B={id:null,type:d&&d.t||"trip",name:"",cur:(S.books[S.books.length-1]||{}).cur||"৳",start:"",budget:"",members:[{id:uid(),name:"",heads:1},{id:uid(),name:"",heads:1}],
@@ -857,7 +858,7 @@ const A={
   ctype(d){F.ctype=d.c;drawSheet()},cmode(d){F.countMode=d.m;drawSheet()},
   upstmt(){$("#sfile").click()},addone(){closeSheet();newF(curBook());openSheet("tx");setTimeout(()=>{const i=$("#f-amount");i&&i.focus()},80)},
   rvtoggle(d){const r=ui.sheet.st.rows[+d.i];r.on=!r.on;drawSheet()},
-  rvall(){const rs=ui.sheet.st.rows,on=!rs.every(r=>r.on||r.dup);rs.forEach(r=>{if(!r.dup)r.on=on});drawSheet()},
+  rvall(){const rs=ui.sheet.st.rows,free=rs.filter(r=>!r.dup&&!r.match),on=!free.every(r=>r.on);free.forEach(r=>r.on=on);drawSheet()},
   stmtpw(){const v=($("#st-pw")||{}).value||"";if(!v)return err("Enter the statement password.");handleStatement(ui.sheet.st.file,v)},
   stmtadd(){addStatement()},
   stmt(d){const x=(curBook().statements||[]).find(s=>s.id===d.id);openSheet("stmtinfo",{sid:d.id,bill:billOf(x)})},
@@ -869,7 +870,7 @@ const A={
     delete v.e;if(id){const x=(b.statements||[]).find(s=>s.id===id);if(x)Object.assign(x,v)}
     else b.statements=(b.statements||[]).concat([Object.assign({id:"s"+uid(),file:"",from:"",to:"",count:0,total:0,added:Date.now()},v)]);
     save();closeSheet();render();toast(v.paid>0&&v.paid>=v.due?"Bill marked as paid":id?"Bill saved":"Bill added",true)},
-  "stmtdel-yes"(){const b=curBook(),id=ui.sheet.sid;S.tx=S.tx.filter(t=>!(t.bookId===b.id&&t.stmt===id));b.statements=(b.statements||[]).filter(x=>x.id!==id);save();closeSheet();render();toast("Statement removed")},
+  "stmtdel-yes"(){const b=curBook(),id=ui.sheet.sid;S.tx.forEach(t=>{if(t.bookId===b.id&&t.stmt===id&&(t.link||!t.fromStmt&&t.bank)){if(t.fromStmt)delete t.fromStmt;delete t.stmt;delete t.bank}});S.tx=S.tx.filter(t=>!(t.bookId===b.id&&t.stmt===id));b.statements=(b.statements||[]).filter(x=>x.id!==id);save();closeSheet();render();toast("Statement removed")},
   doimport(){const v=$("#imp").value;if(!v.trim())return err("Paste a code or choose a file first.");doImport(v)}
 };
 document.addEventListener("click",e=>{const el=e.target.closest("[data-a]");if(el&&!el.disabled&&A[el.dataset.a]){A[el.dataset.a](el.dataset);return}if(e.target===$("#scrim"))closeSheet()});
@@ -1100,7 +1101,7 @@ function cardView(b){const off=ui.fy||0,st=cardStats(b,off),c=st.c,list=st.list;
     const g={};shown.forEach(x=>(g[x.date.slice(0,7)]=g[x.date.slice(0,7)]||[]).push(x));
     body=`<div class="chips">${kinds.map(k=>`<button class="chip" aria-pressed="${k===ui.filter}" data-a="filter" data-c="${k}">${k==="All"?"All":k==="yes"?"Counts":k==="no"?"Doesn't count":CT[k][0]}</button>`).join("")}</div>
     ${Object.keys(g).sort().reverse().map(ym=>{const it=g[ym].sort((x,y)=>y.date.localeCompare(x.date)||(y.created||0)-(x.created||0)),ok=it.filter(x=>x._v.ok).length;
-      return `<div class="card ruled"><div class="day-head"><span>${monthLabel(ym)}</span><span class="num">${c.nocount?it.length+(it.length===1?" transaction":" transactions"):ok+" of "+it.length+" count"}</span></div>${it.map(x=>`<button class="tx" data-a="edittx" data-id="${esc(x.id)}">${catIco(x.cat)}<span class="d">${esc(x.desc)}</span><span class="a num">${fmt(x.amount,b.cur)}</span><span class="s">${new Date(x.date+"T00:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short"})}, ${CT[x.ctype||"purchase"][0]}${c.nocount?"":`. <span class="${x._v.ok?"yes":"no"}">${x._v.ok?"Counts":x._v.why}</span>`}${x.receipt?CLIP:""}</span></button>`).join("")}</div>`}).join("")
+      return `<div class="card ruled"><div class="day-head"><span>${monthLabel(ym)}</span><span class="num">${c.nocount?it.length+(it.length===1?" transaction":" transactions"):ok+" of "+it.length+" count"}</span></div>${it.map(x=>`<button class="tx" data-a="edittx" data-id="${esc(x.id)}">${catIco(x.cat)}<span class="d">${esc(x.desc)}</span><span class="a num">${fmt(x.amount,b.cur)}</span><span class="s">${new Date(x.date+"T00:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short"})}, ${CT[x.ctype||"purchase"][0]}${x.bank&&x.bank!==x.desc?`, bank: ${esc(x.bank)}`:""}${c.nocount?"":`. <span class="${x._v.ok?"yes":"no"}">${x._v.ok?"Counts":x._v.why}</span>`}${x.receipt?CLIP:""}</span></button>`).join("")}</div>`}).join("")
       ||'<div class="empty">Nothing matches this filter in this fee year.</div>'}`}
   return head+body+'<button class="fab" data-a="addtx">+ Add</button>'}
 function cardFields(b){const c=cardOf(b),v=verdict({ctype:F.ctype,amount:parseFloat(F.amount)||0,count:F.countMode==="auto"?undefined:F.countMode==="yes"},c,b.cur);
@@ -1267,8 +1268,13 @@ async function handleStatement(file,pw){const b=curBook();if(!b||b.type!=="card"
     else if(img){if(IN_ARTIFACT)throw new Error("artifact-ocr");const cv=await imgCanvas(file);OCR.cb=m=>{if(m.status==="recognizing text")set(.15+.8*(+m.progress||0),"Reading the photo… "+Math.round((+m.progress||0)*100)+"%");else set(.05,"Loading the reader (first time needs internet)…")};
       if(!window.Tesseract)await loadScript(TESS);const w=await ocrWorker();text=(await w.recognize(cv)).data.text||"";OCR.cb=null}
     else text=csvLines(await file.text());
-    if(!alive())return;const r=parseStatement(text),have=new Set(txOf(b).map(x=>x.date+"|"+(+x.amount).toFixed(2)+"|"+x.desc.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,12)));
-    const rows=r.rows.map(x=>{const ct=classify(x.desc),dup=have.has(x.date+"|"+x.amount.toFixed(2)+"|"+x.desc.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,12));return Object.assign(x,{ctype:ct,cat:guessCat(x.desc,ct),dup,on:!dup})});
+    if(!alive())return;const r=parseStatement(text),have=new Set(txOf(b).flatMap(x=>[x.desc,x.bank].filter(Boolean).map(d=>x.date+"|"+(+x.amount).toFixed(2)+"|"+d.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,12))));
+    txOf(b).filter(x=>x.bank&&x.stmt).forEach(x=>have.add("any|"+(+x.amount).toFixed(2)+"|"+x.bank.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,12)));
+    const pool=txOf(b).filter(x=>x.kind==="expense"&&!x.stmt),used=new Set();
+    const rows=r.rows.map(x=>{const ct=classify(x.desc),kk=x.amount.toFixed(2)+"|"+x.desc.toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,12),dup=have.has(x.date+"|"+kk)||have.has("any|"+kk);let m=null;
+      if(!dup){m=findMatch(pool,used,x.amount,x.date);if(m)used.add(m.id)}
+      return Object.assign(x,{ctype:ct,cat:guessCat(x.desc,ct),dup,on:!dup&&!m},m?{match:m.id,mdesc:m.desc,mdate:m.date,msrc:m.linkBook?((S.books.find(q=>q.id===m.linkBook)||{}).name||"another khata"):"added by hand"}:{})});
+    const toDate=r.to||"";ui.sheet.unbilledMine=pool.filter(x=>!used.has(x.id)&&(!toDate||x.date<=toDate)).length;
     const fb=r.bill;ui.sheet.bill=Object.assign(billOf({due:fb.due,min:fb.min,dueDate:fb.dueDate},true),{auto:{due:!!fb.due,min:!!fb.min,dueDate:!!fb.dueDate}});
     const okB=fb.due>0||!!fb.dueDate;ui.sheet.bill.edit=!okB;
     ui.sheet.st={stmtDate:fb.stmtDate||"",state:rows.length||okB?"review":"error",file,rows,credits:r.credits,from:r.from,to:r.to,msg:rows.length?"":"No transactions were found in this file. Statements with a date at the start of each line and the amount at the end work best. A text PDF from the bank works better than a photo."};
@@ -1285,18 +1291,25 @@ function stmtSheet(){const st=ui.sheet.st||{},b=curBook(),c=cardOf(b);let h=head
   h+=`<h3 class="subhead">This month's bill</h3>${billFields(b,true)}<h3 class="subhead">Transactions</h3>`;
   if(!st.rows.length)return h+`<p class="muted" style="margin:0">No transactions were found in this file. You can still save the bill, and add transactions by hand later.</p><div class="err" id="err" role="alert"></div><div class="actions"><button class="btn primary" data-a="stmtadd">Save bill</button></div>`;
   h+=`<div class="preview num"><div class="r"><span>Dates</span><b>${longDate(st.from)} to ${longDate(st.to)}</b></div><div class="r"><span>Selected</span><b>${on.length} for ${fmt(sum,b.cur)}</b></div>${c.nocount?"":`<div class="r"><span>Count toward the waiver</span><b>${cnt}</b></div>`}
-    ${st.credits?`<div class="r muted"><span>Payments and refunds skipped</span><b>${st.credits}</b></div>`:""}${dups?`<div class="r muted"><span>Already in this card, not selected</span><b>${dups}</b></div>`:""}</div>
+    ${st.credits?`<div class="r muted"><span>Payments and refunds skipped</span><b>${st.credits}</b></div>`:""}${dups?`<div class="r muted"><span>Already in this card, not selected</span><b>${dups}</b></div>`:""}${(()=>{const mt=st.rows.filter(r=>r.match&&!r.on).length;return mt?`<div class="r"><span>Matched to purchases you already added</span><b>${mt}</b></div>`:""})()}${ui.sheet.unbilledMine?`<div class="r muted"><span>Your purchases not on this statement yet</span><b>${ui.sheet.unbilledMine}</b></div>`:""}</div>
+  ${st.rows.some(r=>r.match)?`<p class="muted" style="margin:0;font-size:.92rem">Matched lines aren't added again. Your entry takes the bank's transaction type, so the fee waiver count stays right. Tick a matched line only if it's a separate purchase.</p>`:""}
   <p class="muted" style="margin:0;font-size:.92rem">Untick anything that isn't a purchase. You can change a transaction's type later.</p>
-  <button type="button" class="link" data-a="rvall" style="align-self:flex-start">${st.rows.every(r=>r.on||r.dup)?"Untick all":"Tick all"}</button>
+  <button type="button" class="link" data-a="rvall" style="align-self:flex-start">${st.rows.every(r=>r.on||r.dup||r.match)?"Untick all":"Tick all"}</button>
   <div class="rvlist">${st.rows.map((r,i)=>{const v=verdict(r,c,b.cur);return `<button type="button" class="rv" data-a="rvtoggle" data-i="${i}" aria-pressed="${r.on}"><span class="box">${ico("M5 12l5 5 9-10")}</span><span class="d">${esc(r.desc)}</span><span class="a num">${fmt(r.amount,b.cur)}</span>
-    <span class="s">${new Date(r.date+"T00:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short"})}, ${CT[r.ctype][0]}${c.nocount?"":`. <span class="${v.ok?"yes":"no"}">${v.ok?"Counts":v.why}</span>`}${r.dup?". Already added":""}</span></button>`}).join("")}</div>
+    <span class="s">${new Date(r.date+"T00:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short"})}, ${CT[r.ctype][0]}${c.nocount?"":`. <span class="${v.ok?"yes":"no"}">${v.ok?"Counts":v.why}</span>`}${r.dup?". Already added":""}${r.match?(r.on?". Added as a new purchase":`. <span class="yes">Matches your “${esc(r.mdesc)}”</span> (${esc(r.msrc)}, ${shortDate(r.mdate)})`):""}</span></button>`}).join("")}</div>
   <div class="err" id="err" role="alert"></div><div class="actions"><button class="btn primary" data-a="stmtadd">${on.length?`Save bill and ${on.length} ${on.length===1?"transaction":"transactions"}`:"Save bill only"}</button></div>`;
   return h}
+/* a purchase you already added (by hand, or from a daily ledger) and the bank's line for it rarely share a description,
+   so match on amount (within 1) and date (within 5 days), closest first, each entry used once */
+function findMatch(pool,used,amount,date){let best=null,bs=1e9;pool.forEach(x=>{if(used.has(x.id))return;const da=Math.abs(+x.amount-amount),dd=Math.abs(daysBetween(x.date,date));
+  if(da<=1&&dd<=5){const sc=da*10+dd;if(sc<bs){bs=sc;best=x}}});return best}
+const daysBetween=(a,b)=>Math.round((new Date(a+"T00:00:00")-new Date(b+"T00:00:00"))/864e5);
 function addStatement(){const b=curBook(),st=ui.sheet.st,on=st.rows.filter(r=>r.on),bv=billVals();if(bv.e)return err(bv.e);delete bv.e;
   if(!on.length&&!bv.due&&!bv.dueDate)return err("Nothing to save. Tick some transactions or enter the bill details.");const id="s"+uid(),now=Date.now();
-  on.forEach((r,i)=>S.tx.push({id:uid(),bookId:b.id,kind:"expense",amount:r.amount,desc:r.desc,cat:r.cat,ctype:r.ctype,date:r.date,note:"",stmt:id,created:now+i}));
-  b.statements=(b.statements||[]).concat([{id,file:(st.file&&st.file.name||"").slice(0,120),from:st.from,to:st.to,count:on.length,total:Math.round(on.reduce((a,r)=>a+r.amount,0)*100)/100,added:now,due:bv.due,min:bv.min,dueDate:bv.dueDate,paid:bv.paid,paidOn:bv.paidOn,stmtDate:st.stmtDate||st.to||""}]);
-  save();closeSheet();ui.tab="overview";render();toast(on.length?`Saved the bill and ${on.length} ${on.length===1?"transaction":"transactions"}`:"Bill saved",true)}
+  on.forEach((r,i)=>S.tx.push({id:uid(),bookId:b.id,kind:"expense",amount:r.amount,desc:r.desc,cat:r.cat,ctype:r.ctype,date:r.date,note:"",stmt:id,fromStmt:true,created:now+i}));
+  let merged=0,mamt=0;st.rows.filter(r=>r.match&&!r.on).forEach(r=>{const t=S.tx.find(x=>x.id===r.match);if(!t||t.stmt)return;t.stmt=id;t.ctype=r.ctype;t.bank=r.desc;merged++;mamt+=+t.amount||0});
+  b.statements=(b.statements||[]).concat([{id,file:(st.file&&st.file.name||"").slice(0,120),from:st.from,to:st.to,count:on.length+merged,total:Math.round((on.reduce((a,r)=>a+r.amount,0)+mamt)*100)/100,added:now,due:bv.due,min:bv.min,dueDate:bv.dueDate,paid:bv.paid,paidOn:bv.paidOn,stmtDate:st.stmtDate||st.to||""}]);
+  save();closeSheet();ui.tab="overview";render();toast(on.length||merged?`Saved the bill${on.length?` and ${on.length} new ${on.length===1?"transaction":"transactions"}`:""}${merged?`, matched ${merged}`:""}`:"Bill saved",true)}
 
 /* ---------- credit cards: chart ---------- */
 function stackBars(c,labels,a,bb,still){const w=c.clientWidth,h=c.clientHeight;if(!w)return;const dpr=Math.min(devicePixelRatio||1,2);c.width=Math.round(w*dpr);c.height=Math.round(h*dpr);
